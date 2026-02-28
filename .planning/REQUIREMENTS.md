@@ -1,4 +1,4 @@
-﻿# Requirements: Voice-Based Chatbot for Granicus PM
+# Requirements: Voice-Based Chatbot for Granicus PM
 
 **Defined:** 2026-02-28
 **Core Value:** Deliver fast, secure, and auditable voice conversations that agencies can trust in production.
@@ -65,28 +65,28 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLAT-01 | Phase 0 | Pending |
-| PLAT-02 | Phase 0 | Pending |
-| PLAT-03 | Phase 0 | Pending |
-| PLAT-04 | Phase 0 | Pending |
-| API-01 | Phase 0 | Pending |
-| API-02 | Phase 0 | Pending |
-| API-03 | Phase 0 | Pending |
-| API-04 | Phase 0 | Pending |
-| OBS-02 | Phase 0 | Pending |
-| VOIC-01 | Phase 1 | Pending |
-| VOIC-02 | Phase 1 | Pending |
+| VOIC-01 | Phase 0 | Pending |
+| VOIC-02 | Phase 0 | Pending |
 | VOIC-03 | Phase 1 | Pending |
 | VOIC-04 | Phase 1 | Pending |
-| OBS-01 | Phase 1 | Pending |
-| RAG-01 | Phase 2 | Pending |
-| RAG-02 | Phase 2 | Pending |
-| RAG-03 | Phase 2 | Pending |
-| RAG-04 | Phase 2 | Pending |
-| REL-01 | Phase 2 | Pending |
-| REL-02 | Phase 2 | Pending |
-| REL-03 | Phase 2 | Pending |
-| OBS-03 | Phase 2 | Pending |
+| PLAT-01 | Phase 2 | Pending |
+| PLAT-02 | Phase 2 | Pending |
+| PLAT-03 | Phase 2 | Pending |
+| PLAT-04 | Phase 2 | Pending |
+| API-01 | Phase 2 | Pending |
+| API-02 | Phase 2 | Pending |
+| API-03 | Phase 2 | Pending |
+| API-04 | Phase 2 | Pending |
+| OBS-02 | Phase 2 | Pending |
+| OBS-01 | Phase 3 | Pending |
+| RAG-01 | Phase 4 | Pending |
+| RAG-02 | Phase 4 | Pending |
+| RAG-03 | Phase 4 | Pending |
+| RAG-04 | Phase 4 | Pending |
+| REL-01 | Phase 4 | Pending |
+| REL-02 | Phase 4 | Pending |
+| REL-03 | Phase 4 | Pending |
+| OBS-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 22 total
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 after milestone gap planning update*

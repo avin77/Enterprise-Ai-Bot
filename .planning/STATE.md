@@ -1,18 +1,18 @@
-﻿# Project State
+# Project State
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Deliver fast, secure, and auditable voice conversations that agencies can trust in production.
-**Current focus:** Foundations and Golden Dataset
+**Current focus:** Learning MVP Bootstrap
 
 ## Current Position
 
-Phase: 0 of 3 (Foundations and Golden Dataset)
+Phase: 0 of 5 (Learning MVP Bootstrap)
 Plan: 0 of 3 in current phase
 Status: Ready to plan
-Last activity: 2026-02-28 - Project initialized from PLAN.md in auto mode
+Last activity: 2026-02-28 - Milestone gaps planned with MVP-first sequencing
 
 Progress: [----------] 0%
 
@@ -40,8 +40,8 @@ Progress: [----------] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [Phase 0]: Use AWS us-east-1 with single-tenant MVP baseline
-- [Phase 0]: Use streaming-first architecture with policy supervision
+- [Phase 0]: Prioritize runnable MVP learning flow before full security hardening
+- [Phase 2]: Move former security-heavy foundation work to a dedicated hardening phase
 
 ### Pending Todos
 
