@@ -15,9 +15,9 @@ No user constraints - all decisions at Claude's discretion.
 
 This phase should optimize for fastest path to a working one-turn voice loop while keeping extension points for later hardening phases. The most reliable path is a local-first setup with mockable ASR/LLM/TTS adapters, a single WebSocket contract, and a minimal browser client.
 
-The plan should avoid over-engineering: defer cloud deployment, IAM, and production observability details to later phases already defined in the roadmap. In this phase, success is a repeatable local demo with clear adapter boundaries.
+The plan should avoid over-engineering: defer full security hardening to later phases, but include a minimal AWS deployment track in us-east-1 so the MVP can run on AWS early. In this phase, success is a repeatable local demo plus a deployable backend path on AWS with clear adapter boundaries.
 
-**Primary recommendation:** Build a local FastAPI WebSocket service with pluggable mock adapters and a minimal browser test client, verified by automated smoke tests.
+**Primary recommendation:** Build a local FastAPI WebSocket service with pluggable mock adapters, then add a minimal AWS deployment path (ECR + ECS/Fargate or equivalent managed path) verified by deployment smoke checks.
 </research_summary>
 
 <standard_stack>
@@ -36,12 +36,14 @@ The plan should avoid over-engineering: defer cloud deployment, IAM, and product
 |---------|---------|---------|-------------|
 | pytest | current | Automated smoke and unit tests | Validate bootstrap and one-turn flow |
 | pydantic | current | Message envelope validation | Keep WS contract stable early |
+| Terraform | current | AWS infrastructure provisioning | Define repeatable AWS bootstrap resources in us-east-1 |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
 | FastAPI WS | API Gateway WS early | Slower local iteration and more setup overhead |
 | Real ASR/TTS providers in phase 0 | Mock adapters | Mocks reduce early integration cost/risk |
+| Full multi-service AWS baseline in phase 0 | Minimal backend-only AWS deploy path | Faster time to first cloud validation, less early complexity |
 </standard_stack>
 
 <architecture_patterns>
@@ -73,8 +75,9 @@ tests/
 
 ### Anti-Patterns to Avoid
 - Mixing provider SDK logic directly in WebSocket handler.
-- Building production auth/deployment complexity in this phase.
+- Building full production auth/compliance complexity in this phase.
 - Skipping automated smoke verification for one-turn flow.
+- Deferring all AWS deployment work until late phases when AWS is a hard project constraint.
 </architecture_patterns>
 
 <dont_hand_roll>
@@ -121,6 +124,11 @@ tests/
    - What we know: Mocks are needed for phase speed.
    - What's unclear: How realistic they should be for latency behavior.
    - Recommendation: Keep deterministic mocks first, add latency simulation later.
+
+3. **AWS bootstrap target for phase 0**
+   - What we know: Project must run on AWS and phase 0 now includes an AWS deployment path.
+   - What's unclear: Exact early target (ECS/Fargate service vs equivalent managed backend path).
+   - Recommendation: Choose the quickest repeatable path that preserves migration to target architecture.
 </open_questions>
 
 <sources>

@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 0 of 10 (Learning MVP Bootstrap)
-Plan: 0 of 3 in current phase
+Plan: 0 of 4 in current phase
 Status: Ready to plan
 Last activity: 2026-02-28 - Added expert split roadmap with eval gates between major capability phases
 

@@ -24,20 +24,22 @@ Use an AI product management sequence: ship a learning MVP quickly, harden secur
 ## Phase Details
 
 ### Phase 0: Learning MVP Bootstrap
-**Goal:** Get a simple browser-to-bot streaming path running quickly so the product is testable early.
+**Goal:** Get a simple browser-to-bot streaming path running quickly and establish an initial AWS deployment path in us-east-1.
 **Depends on:** Nothing (first phase)
-**Requirements:** [VOIC-01, VOIC-02]
+**Requirements:** [VOIC-01, VOIC-02, PLAT-00]
 **Gap Closure:** Addresses audit gaps for missing early runnable MVP flow
 **Success Criteria** (what must be TRUE):
   1. Developer can start local services and complete one full voice turn.
   2. Browser streams mic audio and receives text/audio response through WS.
   3. Core adapter boundaries (ASR, LLM, TTS) exist with pluggable interfaces.
-**Plans:** 3 plans
+  4. Backend service is deployable to an AWS dev environment in us-east-1 for MVP validation.
+**Plans:** 4 plans
 
 Plans:
 - [ ] 00-01-PLAN.md - Bootstrap local runtime skeleton and WS entrypoint
 - [ ] 00-02-PLAN.md - Implement adapter-driven one-turn streaming orchestrator
 - [ ] 00-03-PLAN.md - Wire browser demo client to backend WebSocket flow
+- [ ] 00-04-PLAN.md - Add AWS bootstrap deployment path for backend MVP
 
 ### Phase 1: Runnable MVP Web Voice
 **Goal:** Upgrade the learning slice into a stable demo path with guardrails and measurable latency targets.
@@ -184,7 +186,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Learning MVP Bootstrap | 0/3 | Not started | - |
+| 0. Learning MVP Bootstrap | 0/4 | Not started | - |
 | 1. Runnable MVP Web Voice | 0/4 | Not started | - |
 | 2. Security and Contracts Hardening | 0/4 | Not started | - |
 | 3. Eval Gate I (MVP + Security) | 0/3 | Not started | - |

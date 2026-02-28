@@ -7,6 +7,7 @@
 
 ### Platform and Security
 
+- [ ] **PLAT-00**: MVP backend is deployable to AWS us-east-1 for development validation.
 - [ ] **PLAT-01**: Platform provisions private networking, service endpoints, and encrypted storage in AWS us-east-1.
 - [ ] **PLAT-02**: IAM roles enforce least privilege with explicit permission boundaries.
 - [ ] **PLAT-03**: Security baseline includes threat model v1, authz matrix, and log retention policy.
@@ -65,6 +66,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| PLAT-00 | Phase 0 | Pending |
 | VOIC-01 | Phase 0 | Pending |
 | VOIC-02 | Phase 0 | Pending |
 | VOIC-03 | Phase 1 | Pending |
@@ -89,10 +91,10 @@
 | REL-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 22 total
-- Mapped to phases: 22
+- v1 requirements: 23 total
+- Mapped to phases: 23
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after milestone gap planning update (expert split + eval gates)*
+*Last updated: 2026-02-28 after phase 0 AWS inclusion update*
