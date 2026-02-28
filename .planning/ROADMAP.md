@@ -26,20 +26,21 @@ Use an AI product management sequence: ship a learning MVP quickly, harden secur
 ### Phase 0: Learning MVP Bootstrap
 **Goal:** Get a simple browser-to-bot streaming path running quickly and establish an initial AWS deployment path in us-east-1.
 **Depends on:** Nothing (first phase)
-**Requirements:** [VOIC-01, VOIC-02, PLAT-00]
+**Requirements:** [VOIC-01, VOIC-02, API-00, PLAT-00]
 **Gap Closure:** Addresses audit gaps for missing early runnable MVP flow
 **Success Criteria** (what must be TRUE):
   1. Developer can start local services and complete one full voice turn.
-  2. Browser streams mic audio and receives text/audio response through WS.
-  3. Core adapter boundaries (ASR, LLM, TTS) exist with pluggable interfaces.
-  4. Backend service is deployable to an AWS dev environment in us-east-1 for MVP validation.
+  2. Frontend streams through backend endpoints (`/ws`, `/chat`, `/health`) and never calls AWS directly.
+  3. Backend performs minimal token validation and rate limiting for MVP API protection.
+  4. Core adapter boundaries (ASR, LLM, TTS) use AWS-backed implementations with local mocks.
+  5. Backend service is deployable to an AWS dev environment in us-east-1 for MVP validation.
 **Plans:** 4 plans
 
 Plans:
-- [ ] 00-01-PLAN.md - Bootstrap local runtime skeleton and WS entrypoint
-- [ ] 00-02-PLAN.md - Implement adapter-driven one-turn streaming orchestrator
-- [ ] 00-03-PLAN.md - Wire browser demo client to backend WebSocket flow
-- [ ] 00-04-PLAN.md - Add AWS bootstrap deployment path for backend MVP
+- [ ] 00-01-PLAN.md - Create layered backend skeleton with `/ws`, `/chat`, `/health` and MVP protections
+- [ ] 00-02-PLAN.md - Implement adapter-driven AWS orchestration with local mocks
+- [ ] 00-03-PLAN.md - Wire frontend streaming and text flows through backend-only APIs
+- [ ] 00-04-PLAN.md - Add containerized AWS bootstrap deployment path in us-east-1
 
 ### Phase 1: Runnable MVP Web Voice
 **Goal:** Upgrade the learning slice into a stable demo path with guardrails and measurable latency targets.

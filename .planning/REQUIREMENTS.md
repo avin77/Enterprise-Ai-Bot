@@ -15,6 +15,7 @@
 
 ### Contracts and Interfaces
 
+- [ ] **API-00**: Backend exposes `/ws`, `/chat`, and `/health` endpoints for MVP interactions.
 - [ ] **API-01**: REST endpoints for auth, sessions, knowledge, metrics, and callbacks are documented in OpenAPI.
 - [ ] **API-02**: WebSocket message schemas are versioned and validated for all client/server events.
 - [ ] **API-03**: Error responses include standardized code, message, trace_id, retryable, and details fields.
@@ -66,6 +67,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| API-00 | Phase 0 | Pending |
 | PLAT-00 | Phase 0 | Pending |
 | VOIC-01 | Phase 0 | Pending |
 | VOIC-02 | Phase 0 | Pending |
@@ -91,8 +93,8 @@
 | REL-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 23 total
-- Mapped to phases: 23
+- v1 requirements: 24 total
+- Mapped to phases: 24
 - Unmapped: 0
 
 ---

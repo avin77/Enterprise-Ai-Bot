@@ -7,15 +7,35 @@
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
 
-No user constraints - all decisions at Claude's discretion.
+### Locked Decisions
+- Use a clear layered architecture: Frontend, Backend, Adapter, Infrastructure.
+- Frontend captures mic audio and sends to backend via WebSocket (streaming) and REST (non-streaming).
+- Frontend must never call AWS directly and must not contain cloud credentials.
+- Backend is the public API surface and must expose `/ws`, `/chat`, and `/health`.
+- Backend must include MVP-level API protection (token validation + rate limiting).
+- Backend calls AWS services securely for STT/LLM/TTS flows.
+- Credential handling must use IAM role and environment variables; no frontend key exposure.
+- Keep adapter abstraction for ASR/LLM/TTS to avoid vendor lock-in.
+- Infrastructure path must include containerized backend and AWS deployment resources.
+- Phase 0 scope includes backend skeleton, adapters, WS contract, local mocks, containerization, and basic AWS deploy test.
+
+### Claude's Discretion
+- Exact AWS service wiring details for phase-0 dev deployment path.
+- Exact shape of minimal token format for MVP validation.
+- Specific test harness structure as long as it validates one full secure roundtrip.
+
+### Deferred Ideas (OUT OF SCOPE)
+- Full IAM hardening and complete security baseline.
+- Production observability and advanced scaling/networking.
+- Multi-region deployment and advanced autoscaling policy.
 </user_constraints>
 
 <research_summary>
 ## Summary
 
-This phase should optimize for fastest path to a working one-turn voice loop while keeping extension points for later hardening phases. The most reliable path is a local-first setup with mockable ASR/LLM/TTS adapters, a single WebSocket contract, and a minimal browser client.
+This phase should optimize for fastest path to a working one-turn voice loop while keeping extension points for later hardening phases. The required operating model is frontend-to-backend only, with backend owning all AWS interactions and exposing `/ws`, `/chat`, and `/health`.
 
-The plan should avoid over-engineering: defer full security hardening to later phases, but include a minimal AWS deployment track in us-east-1 so the MVP can run on AWS early. In this phase, success is a repeatable local demo plus a deployable backend path on AWS with clear adapter boundaries.
+The plan should avoid over-engineering: defer full security hardening to later phases, but include MVP-level token validation/rate limiting and a minimal AWS deployment track in us-east-1 so the MVP can run on AWS early. In this phase, success is a repeatable local demo plus a deployable backend path on AWS with clear adapter boundaries.
 
 **Primary recommendation:** Build a local FastAPI WebSocket service with pluggable mock adapters, then add a minimal AWS deployment path (ECR + ECS/Fargate or equivalent managed path) verified by deployment smoke checks.
 </research_summary>
