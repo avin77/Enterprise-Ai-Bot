@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 0 of 5 (Learning MVP Bootstrap)
+Phase: 0 of 10 (Learning MVP Bootstrap)
 Plan: 0 of 3 in current phase
 Status: Ready to plan
-Last activity: 2026-02-28 - Milestone gaps planned with MVP-first sequencing
+Last activity: 2026-02-28 - Added expert split roadmap with eval gates between major capability phases
 
 Progress: [----------] 0%
 
@@ -41,7 +41,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - [Phase 0]: Prioritize runnable MVP learning flow before full security hardening
-- [Phase 2]: Move former security-heavy foundation work to a dedicated hardening phase
+- [Phase 3]: Add formal evaluation gate before starting RAG implementation
+- [Phase 6]: Add second evaluation gate before enabling agentic tooling
+- [Phase 7-8]: Split tool functionality from agentic safety governance
 
 ### Pending Todos
 

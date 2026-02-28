@@ -77,16 +77,16 @@
 | API-02 | Phase 2 | Pending |
 | API-03 | Phase 2 | Pending |
 | API-04 | Phase 2 | Pending |
-| OBS-02 | Phase 2 | Pending |
 | OBS-01 | Phase 3 | Pending |
+| OBS-02 | Phase 3 | Pending |
 | RAG-01 | Phase 4 | Pending |
-| RAG-02 | Phase 4 | Pending |
-| RAG-03 | Phase 4 | Pending |
-| RAG-04 | Phase 4 | Pending |
-| REL-01 | Phase 4 | Pending |
-| REL-02 | Phase 4 | Pending |
-| REL-03 | Phase 4 | Pending |
-| OBS-03 | Phase 4 | Pending |
+| RAG-02 | Phase 5 | Pending |
+| OBS-03 | Phase 6 | Pending |
+| RAG-03 | Phase 7 | Pending |
+| RAG-04 | Phase 8 | Pending |
+| REL-01 | Phase 9 | Pending |
+| REL-02 | Phase 9 | Pending |
+| REL-03 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 22 total
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after milestone gap planning update*
+*Last updated: 2026-02-28 after milestone gap planning update (expert split + eval gates)*
