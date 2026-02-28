@@ -35,9 +35,9 @@ Use an AI product management sequence: ship a learning MVP quickly, harden secur
 **Plans:** 3 plans
 
 Plans:
-- [ ] 00-01: Create minimal local stack and boot scripts for MVP run
-- [ ] 00-02: Implement simple streaming ASR to LLM to TTS orchestrator flow
-- [ ] 00-03: Wire browser widget to WS events for one-turn demo
+- [ ] 00-01-PLAN.md - Bootstrap local runtime skeleton and WS entrypoint
+- [ ] 00-02-PLAN.md - Implement adapter-driven one-turn streaming orchestrator
+- [ ] 00-03-PLAN.md - Wire browser demo client to backend WebSocket flow
 
 ### Phase 1: Runnable MVP Web Voice
 **Goal:** Upgrade the learning slice into a stable demo path with guardrails and measurable latency targets.
