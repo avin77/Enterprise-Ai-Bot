@@ -1,12 +1,16 @@
+from base64 import b64decode
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 
 from backend.app.api.chat import router as chat_router
+from backend.app.orchestrator.runtime import build_pipeline
 from backend.app.schemas.messages import WsClientMessage, WsServerMessage
 from backend.app.security.auth import validate_websocket_token
 from backend.app.security.rate_limit import limiter
 
 app = FastAPI(title="Enterprise AI Voice Bot", version="0.1.0")
 app.include_router(chat_router)
+pipeline = build_pipeline()
 
 
 @app.get("/health")
@@ -30,8 +34,22 @@ async def voice_ws(websocket: WebSocket) -> None:
             raw = await websocket.receive_json()
             incoming = WsClientMessage.model_validate(raw)
             if incoming.type == "text" and incoming.text:
+                result = await pipeline.run_text_turn(incoming.text)
+                await websocket.send_json(WsServerMessage(type="bot_text", text=result.response_text).model_dump())
+            elif incoming.type == "audio_chunk" and incoming.audio_base64:
+                audio_bytes = b64decode(incoming.audio_base64.encode("utf-8"))
+                result = await pipeline.run_roundtrip(audio_bytes)
                 await websocket.send_json(
-                    WsServerMessage(type="bot_text", text=f"echo: {incoming.text}").model_dump()
+                    WsServerMessage(type="partial_text", text=result.transcript).model_dump()
+                )
+                await websocket.send_json(
+                    WsServerMessage(type="bot_text", text=result.response_text).model_dump()
+                )
+                await websocket.send_json(
+                    WsServerMessage(
+                        type="bot_audio_chunk",
+                        audio_base64=result.response_audio.decode("utf-8"),
+                    ).model_dump()
                 )
             elif incoming.type == "end":
                 await websocket.send_json(WsServerMessage(type="ack", text="closed").model_dump())
@@ -39,4 +57,3 @@ async def voice_ws(websocket: WebSocket) -> None:
                 break
     except WebSocketDisconnect:
         return
-

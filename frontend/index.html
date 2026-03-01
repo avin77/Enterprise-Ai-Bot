@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phase 0 Voice MVP</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --line: #d7deea;
+      --ink: #122033;
+      --accent: #0f5ea8;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #f5f8fc 0%, #e8eef8 100%);
+      color: var(--ink);
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 8px 24px rgba(8, 24, 48, 0.08);
+    }
+    .row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    input, button, textarea {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.6rem 0.7rem;
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      resize: vertical;
+      font-family: Consolas, monospace;
+    }
+    .grow {
+      flex: 1 1 260px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Phase 0 Voice MVP</h1>
+      <div class="row">
+        <input id="token" class="grow" value="dev-token" placeholder="API token">
+        <button id="connect">Connect WS</button>
+        <button id="startMic">Start Mic</button>
+        <button id="stopMic">Stop Mic</button>
+      </div>
+      <div class="row">
+        <input id="textInput" class="grow" placeholder="Send text with /chat">
+        <button id="sendText">Send Text</button>
+      </div>
+      <textarea id="log" readonly></textarea>
+    </div>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
+

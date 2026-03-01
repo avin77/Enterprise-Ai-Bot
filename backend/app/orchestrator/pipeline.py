@@ -48,3 +48,19 @@ class VoicePipeline:
             response_audio=response_audio,
         )
 
+    async def run_text_turn(self, text: str) -> PipelineResult:
+        try:
+            response_text = await self._llm.generate(text)
+        except Exception as exc:  # pragma: no cover
+            raise PipelineStageError("llm", str(exc)) from exc
+
+        try:
+            response_audio = await self._tts.synthesize(response_text)
+        except Exception as exc:  # pragma: no cover
+            raise PipelineStageError("tts", str(exc)) from exc
+
+        return PipelineResult(
+            transcript=text,
+            response_text=response_text,
+            response_audio=response_audio,
+        )

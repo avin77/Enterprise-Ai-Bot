@@ -44,7 +44,7 @@ class BackendContractTests(unittest.TestCase):
             headers={"Authorization": f"Bearer {VALID_TOKEN}"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["reply"], "echo: hello")
+        self.assertEqual(response.json()["reply"], "assistant:hello")
 
     def test_chat_rate_limit_enforced(self) -> None:
         headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
@@ -71,7 +71,7 @@ class BackendContractTests(unittest.TestCase):
             websocket.send_json({"type": "text", "text": "ping"})
             response = websocket.receive_json()
             self.assertEqual(response["type"], "bot_text")
-            self.assertEqual(response["text"], "echo: ping")
+            self.assertEqual(response["text"], "assistant:ping")
 
     def test_ws_rate_limit_enforced(self) -> None:
         with self.client.websocket_connect(f"/ws?token={VALID_TOKEN}") as websocket:
