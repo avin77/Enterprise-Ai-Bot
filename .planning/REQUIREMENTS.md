@@ -67,10 +67,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-00 | Phase 0 | Pending |
-| PLAT-00 | Phase 0 | Pending |
-| VOIC-01 | Phase 0 | Pending |
-| VOIC-02 | Phase 0 | Pending |
+| API-00 | Phase 0 | Complete (2026-03-01) |
+| PLAT-00 | Phase 0 | Complete (2026-03-01) |
+| VOIC-01 | Phase 0 | Complete (2026-03-01) |
+| VOIC-02 | Phase 0 | Complete (2026-03-01) |
 | VOIC-03 | Phase 1 | Pending |
 | VOIC-04 | Phase 1 | Pending |
 | PLAT-01 | Phase 2 | Pending |

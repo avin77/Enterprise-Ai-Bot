@@ -10,7 +10,7 @@ Use an AI product management sequence: ship a learning MVP quickly, harden secur
 - Integer phases (0, 1, 2, ...): planned milestone work
 - Decimal phases (2.1, 2.2): urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 0: Learning MVP Bootstrap** - Build the smallest runnable voice loop for self-learning
+- [x] **Phase 0: Learning MVP Bootstrap** - Build the smallest runnable voice loop for self-learning (Completed 2026-03-01)
 - [ ] **Phase 1: Runnable MVP Web Voice** - Stabilize MVP turn quality and safety behavior
 - [ ] **Phase 2: Security and Contracts Hardening** - Implement baseline security posture and contract governance
 - [ ] **Phase 3: Eval Gate I (MVP + Security)** - Validate MVP plus security baseline before RAG investment
@@ -37,10 +37,10 @@ Use an AI product management sequence: ship a learning MVP quickly, harden secur
 **Plans:** 4 plans
 
 Plans:
-- [ ] 00-01-PLAN.md - Create layered backend skeleton with `/ws`, `/chat`, `/health` and MVP protections
-- [ ] 00-02-PLAN.md - Implement adapter-driven AWS orchestration with local mocks
-- [ ] 00-03-PLAN.md - Wire frontend streaming and text flows through backend-only APIs
-- [ ] 00-04-PLAN.md - Add containerized AWS bootstrap deployment path in us-east-1
+- [x] 00-01-PLAN.md - Create layered backend skeleton with `/ws`, `/chat`, `/health` and MVP protections
+- [x] 00-02-PLAN.md - Implement adapter-driven AWS orchestration with local mocks
+- [x] 00-03-PLAN.md - Wire frontend streaming and text flows through backend-only APIs
+- [x] 00-04-PLAN.md - Add containerized AWS bootstrap deployment path in us-east-1
 
 ### Phase 1: Runnable MVP Web Voice
 **Goal:** Upgrade the learning slice into a stable demo path with guardrails and measurable latency targets.
@@ -187,7 +187,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Learning MVP Bootstrap | 0/4 | Not started | - |
+| 0. Learning MVP Bootstrap | 4/4 | Complete | 2026-03-01 |
 | 1. Runnable MVP Web Voice | 0/4 | Not started | - |
 | 2. Security and Contracts Hardening | 0/4 | Not started | - |
 | 3. Eval Gate I (MVP + Security) | 0/3 | Not started | - |
