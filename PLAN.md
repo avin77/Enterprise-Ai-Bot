@@ -1,4 +1,4 @@
-﻿Voice-Based Chatbot for Granicus PM (Gov-ready, Python, us-east-1)
+﻿Voice-Based Chatbot for PM (Gov-ready, Python, us-east-1)
 ================================================================
 
 Objectives
