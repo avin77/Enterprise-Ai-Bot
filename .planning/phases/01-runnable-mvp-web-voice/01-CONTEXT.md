@@ -1,7 +1,7 @@
 # Phase 1: GXA Voice Baseline - Context
 
 **Gathered:** 2026-03-09
-**Status:** Ready for planning (RAG Integration & Latency Measurement pending discussion)
+**Status:** Context locked — ready for planning
 
 <domain>
 ## Phase Boundary
@@ -37,12 +37,23 @@ Transition the MVP into an authoritative public sector agent by tuning voice act
   - HR, emergency management, elections resources
   - ~50 PDFs covering major departments and services
 
+### RAG Integration Point
+- Knowledge context injected into LLM via **System Prompt** (clearest audit trail, supports full FAQ context without token overhead)
+- Retrieve relevant FAQ snippets before each LLM call using hybrid search (semantic + exact match)
+- Pass top 3-5 most relevant FAQs as context in the system prompt
+- Always include source document attribution in the response
+
+### Latency Measurement
+- Track **per-stage breakdowns**: ASR time, RAG lookup time, LLM inference time, TTS synthesis time
+- Measure from first audio frame received to final audio output complete
+- Store aggregated metrics hourly (p50, p95, p99 latencies) in CloudWatch
+- Log detailed per-request timing for analysis and optimization
+
 ### Claude's Discretion
-- RAG Integration Point (how knowledge reaches LLM) — pending detailed discussion
-- Latency Measurement strategy (tracking per-stage timings) — pending detailed discussion
-- Exact chunking size and overlap strategy
+- Exact chunking size and overlap strategy for FAQ splitting
 - Vector embedding model selection (sentence-transformers vs alternatives)
 - Caching strategy for frequently accessed FAQs
+- CloudWatch dashboard visualization (timings, outliers, trend analysis)
 
 </decisions>
 
