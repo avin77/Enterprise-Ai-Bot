@@ -1,7 +1,7 @@
 # Phase 1: GXA Voice Baseline - Context
 
 **Gathered:** 2026-03-09
-**Status:** Context locked — ready for planning
+**Status:** Context locked — all gray areas resolved (OpenSearch alternative, embedding strategy, LLM choice, interoperability)
 
 <domain>
 ## Phase Boundary
@@ -14,21 +14,32 @@ Transition the MVP into an authoritative public sector agent by tuning voice act
 ## Implementation Decisions
 
 ### Knowledge Source Structure (LOCKED)
-- **Hybrid Storage Strategy:**
-  - **Local Development:** SQLite (embedded, offline-capable) + Markdown files (git-versioned) + Sentence Transformers (free embeddings)
-  - **Cloud Production:** DynamoDB (serverless, scalable) + S3 (document storage) + AWS Bedrock/SageMaker (vector embeddings at scale)
+- **Vector Embedding Strategy (Cost-Optimized):**
+  - **Unified embedding model everywhere:** Sentence Transformers `all-MiniLM-L6-v2` (384-dim)
+    - Local dev: Sentence Transformers library (free, offline-capable)
+    - Cloud production: AWS Lambda compute function (batched, on-demand)
+    - **Why:** Avoids dimension mismatch, single index strategy, costs ~$0.01/1000 embeddings vs $0.04 for Titan
+    - **Trade-off:** Slightly lower accuracy than Titan V2, acceptable for government FAQs
+
+- **Vector Search Service (Cost-Optimized):**
+  - **Aurora PostgreSQL Serverless v2 + pgvector** (~$43/month base + query costs)
+    - Single database for documents, metadata, embeddings, full-text index
+    - Supports hybrid search (exact match + semantic vector similarity)
+    - SQL queries for ranking and filtering
+    - Better latency predictability than Lambda scanning
+  - **Alternative if cost still high:** DynamoDB scan + rank in Lambda ($5-20/mo, slower but functional)
 
 - **Data Pipeline (Monthly Updates):**
   1. Manual PDF extraction from Jackson County official documents (no auto-scraper, human-curated)
   2. FAQ parser: Extract Q&A pairs from PDFs and web content
   3. Semantic chunking: Split into logical document chunks
-  4. Vector embedding: Use Sentence Transformers locally, Bedrock in cloud
-  5. Hybrid indexing: Store in SQLite + DynamoDB with both semantic vectors and full-text index
+  4. Vector embedding: Batch compute using Sentence Transformers (Lambda or local dev) → 384-dim vectors
+  5. Hybrid indexing: Store in Aurora PostgreSQL with document text, embeddings, metadata
 
 - **Search Strategy (Hybrid):**
-  - Semantic search: Vector similarity for intent matching ("Can I get a permit?" → relevant permits)
-  - Exact match: Full-text index for direct keyword lookups
-  - Combined ranking: Re-rank results by relevance before passing to LLM
+  - Semantic search: pgvector similarity for intent matching ("Can I get a permit?" → relevant permits)
+  - Exact match: PostgreSQL full-text search for direct keyword lookups
+  - Combined ranking: Query re-ranks results by relevance before passing to LLM
 
 - **Initial Knowledge Corpus:**
   - Jackson County FAQs (2023-2025)
@@ -38,10 +49,20 @@ Transition the MVP into an authoritative public sector agent by tuning voice act
   - ~50 PDFs covering major departments and services
 
 ### RAG Integration Point
+- **LLM:** Claude 3.5 Sonnet (balanced cost/speed/accuracy for government FAQs)
 - Knowledge context injected into LLM via **System Prompt** (clearest audit trail, supports full FAQ context without token overhead)
 - Retrieve relevant FAQ snippets before each LLM call using hybrid search (semantic + exact match)
-- Pass top 3-5 most relevant FAQs as context in the system prompt
-- Always include source document attribution in the response
+- Pass top 3-5 most relevant FAQs as context in the system prompt (within 100k token context window)
+- Always include source document attribution in the response (e.g., "Per Jackson County FAQs: [document name], [page]")
+
+### System Interoperability
+- **KnowledgeAdapter Interface (Portable):**
+  - `MockKnowledgeAdapter`: SQLite + Sentence Transformers (dev, offline-capable)
+  - `AwsKnowledgeAdapter`: Aurora PostgreSQL + Lambda batching (staging/production)
+  - Design with clean interface: `search(query: str, top_k: int) → List[Document]`
+  - Allows swapping implementations without changing VoicePipeline code
+  - Can be extracted to standalone Python package for reuse in other projects (Phase 3+ decision)
+  - VoicePipeline receives KnowledgeAdapter instance via dependency injection
 
 ### Latency Measurement
 - Track **per-stage breakdowns**: ASR time, RAG lookup time, LLM inference time, TTS synthesis time
@@ -49,11 +70,22 @@ Transition the MVP into an authoritative public sector agent by tuning voice act
 - Store aggregated metrics hourly (p50, p95, p99 latencies) in CloudWatch
 - Log detailed per-request timing for analysis and optimization
 
+### Cost Comparison (Staging Environment)
+| Option | Monthly Cost | Trade-off |
+|--------|--------------|-----------|
+| OpenSearch Serverless (research) | ~$174 | Hybrid search, lowest latency, expensive |
+| **Aurora PostgreSQL + pgvector (chosen)** | **~$43-80** | Good latency, SQL familiarity, scalable to production |
+| DynamoDB + Lambda scan | ~$5-20 | Cheapest, slow search, limited ranking |
+| Kendra | ~$230+ | Simplest ops, expensive, overkill for 50 PDFs |
+
+**Chosen approach saves ~$100/month vs OpenSearch, meets latency SLO.**
+
 ### Claude's Discretion
-- Exact chunking size and overlap strategy for FAQ splitting
-- Vector embedding model selection (sentence-transformers vs alternatives)
-- Caching strategy for frequently accessed FAQs
+- Exact chunking size and overlap strategy for FAQ splitting (balanced for search accuracy)
+- Caching strategy for frequently accessed FAQs (Redis or in-process?)
 - CloudWatch dashboard visualization (timings, outliers, trend analysis)
+- PostgreSQL query tuning (indexes, cost estimation for hybrid search)
+- Sentence Transformers version pinning and model cache strategy
 
 </decisions>
 
