@@ -26,7 +26,7 @@
 
 - [ ] **VOIC-01**: Web client streams microphone audio over authenticated WebSocket and receives partial transcript updates.
 - [ ] **VOIC-02**: Orchestrator streams ASR to LLM to TTS and starts bot audio before full response completion.
-- [ ] **VOIC-03**: Voice sessions satisfy latency SLO targets for first partial, first audio, and turn latency.
+- [x] **VOIC-03**: Voice sessions satisfy latency SLO targets for first partial, first audio, and turn latency.
 - [ ] **VOIC-04**: Guardrails scrub or block unsafe/PII-sensitive content before final output.
 
 ### Observability and Evaluation
@@ -50,8 +50,8 @@
 
 ### RAG and Knowledge
 
-- [ ] **RAG-01**: ETL pipeline ingests S3 documents (PDFs) into DynamoDB + BM25 index with required metadata fields (source_doc, department, chunk_id, text, embedding binary, created_at).
-- [ ] **RAG-02**: Retrieval-augmented responses include citations to source documents with page/section reference.
+- [x] **RAG-01**: ETL pipeline ingests S3 documents (PDFs) into DynamoDB + BM25 index with required metadata fields (source_doc, department, chunk_id, text, embedding binary, created_at).
+- [x] **RAG-02**: Retrieval-augmented responses include citations to source documents with page/section reference.
 - [ ] **RAG-03**: Tooling supports property lookup and permit status through authenticated municipal interfaces.
 - [ ] **RAG-04**: Hybrid retrieval: BM25 initial candidate set re-ranked by embedding similarity in Phase 4; per-candidate scores logged.
 
@@ -86,9 +86,9 @@
 | PLAT-00 | Phase 0 | Complete (2026-03-01) |
 | VOIC-01 | Phase 0 | Complete (2026-03-01) |
 | VOIC-02 | Phase 0 | Complete (2026-03-01) |
-| VOIC-03 | Phase 1 | Pending |
-| RAG-01 | Phase 1 | Pending |
-| RAG-02 | Phase 1 | Pending |
+| VOIC-03 | Phase 1 | Complete |
+| RAG-01 | Phase 1 | Complete |
+| RAG-02 | Phase 1 | Complete |
 | AGENT-01 | Phase 1.5 | Pending |
 | AGENT-02 | Phase 1.5 | Pending |
 | AGENT-03 | Phase 1.5 | Pending |

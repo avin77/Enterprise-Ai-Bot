@@ -86,7 +86,7 @@ Plans:
   6. IAM role includes: `dynamodb:Scan`, `dynamodb:GetItem`, `dynamodb:Query`, `dynamodb:PutItem`, `dynamodb:BatchWriteItem`, `dynamodb:UpdateItem`, `s3:GetObject`, `s3:ListBucket`, `cloudwatch:PutMetricData`.
   7. Redis failure falls back to direct BM25 — voice turn never fails due to Redis outage.
   8. Government synonym expansion applied to BM25 queries (≥30 synonym pairs for public sector terms).
-**Plans:** 4 plans
+**Plans:** 2/4 plans executed
 
 Plans:
 - [x] 01-01-PLAN.md — Local Docker Compose: all services, AWS creds, Phase 0 ASR/TTS integration, SLO <1.5s local
@@ -320,7 +320,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Learning MVP Bootstrap | 5/5 | Complete | 2026-03-01 |
-| 1. GXA Voice Baseline | 1/4 | In progress | - |
+| 1. GXA Voice Baseline | 2/4 | In Progress|  |
 | 1.5. Agentic Voice Core ★ | 0/4 | Not started | - |
 | 2. Public Sector Safety | 0/4 | Not started | - |
 | 2.5. Conversation Memory ★ | 0/3 | Not started | - |
