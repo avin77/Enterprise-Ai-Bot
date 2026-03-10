@@ -1,6 +1,7 @@
-# Requirements: Voice-Based Chatbot for Granicus PM
+# Requirements: Enterprise AI Voice Bot (GXA / Granicus)
 
 **Defined:** 2026-02-28
+**Updated:** 2026-03-10 — added AGENT-* and updated OBS-* for multi-agent agentic architecture
 **Core Value:** Deliver fast, secure, and auditable voice conversations that agencies can trust in production.
 
 ## v1 Requirements
@@ -31,15 +32,28 @@
 ### Observability and Evaluation
 
 - [ ] **OBS-01**: OpenTelemetry traces and dashboards expose latency, reliability, cost, and safety metrics.
-- [ ] **OBS-02**: Golden dataset of at least 50 curated conversations is stored with manifest and fixtures.
+- [ ] **OBS-02**: Golden dataset of at least 50 curated conversations with gold-label routing, source, and expected answer.
 - [ ] **OBS-03**: Replay harness computes WER, intent match, citation quality, hallucination, and latency metrics.
+- [ ] **OBS-04**: Agent trace event emitted every turn: session_id, turn_id, intent, intent_confidence, routing_decision, retrieved_doc_ids, llm_prompt_tokens, llm_response_tokens, llm_latency_ms, tool_calls, total_latency_ms.
+- [ ] **OBS-05**: Eval dashboard `voice-bot-mvp-evals` with per-run pass/fail badge, filter by date + last 2h, sortable metric table. Each eval script uses fixed seed for deterministic results.
+- [ ] **OBS-06**: Intent confusion matrix: per-intent precision/recall logged per turn, aggregated weekly in CloudWatch `IntentPrecision/{intent_name}`. Fallback path triggers when confidence < 0.7.
+- [ ] **OBS-07**: Cost per conversation breakdown: compute_cost_usd + llm_cost_usd + storage_cost_usd. Alert fires if cost_per_turn > 2× baseline_expected_cost.
 
-### RAG and Agentic Reliability
+### Agent Architecture
 
-- [ ] **RAG-01**: ETL pipeline ingests S3 documents into OpenSearch with required metadata fields.
-- [ ] **RAG-02**: Retrieval-augmented responses include citations to source documents.
-- [ ] **RAG-03**: Tooling supports property lookup and ticket recommendation through authenticated interfaces.
-- [ ] **RAG-04**: Supervisor model can veto policy-violating tool plans and response content.
+- [ ] **AGENT-01**: Orchestrator+Intent Agent (Claude-backed) routes each turn, logs intent label and confidence score per turn.
+- [ ] **AGENT-02**: Retrieval Agent (Claude-backed) wraps BM25+DynamoDB RAG, returns top-3 chunks with source attribution.
+- [ ] **AGENT-03**: Response Agent (Claude-backed) synthesizes grounded final answer with citations from retrieved context.
+- [ ] **AGENT-04**: Memory Store persists conversation sessions in DynamoDB (session_id PK, turn_timestamp SK with hashed prefix, TTL 90 days); Orchestrator injects last 5 turns into context.
+- [ ] **AGENT-05**: Tool Agent executes municipal tools (property lookup, utility, permits); mock in Phase 1.5, real in Phase 5.
+- [ ] **AGENT-06**: Supervisor Agent vetoes unsafe tool plans and responses; outputs signed audit trail with decision reason for every veto.
+
+### RAG and Knowledge
+
+- [ ] **RAG-01**: ETL pipeline ingests S3 documents (PDFs) into DynamoDB + BM25 index with required metadata fields (source_doc, department, chunk_id, text, embedding binary, created_at).
+- [ ] **RAG-02**: Retrieval-augmented responses include citations to source documents with page/section reference.
+- [ ] **RAG-03**: Tooling supports property lookup and permit status through authenticated municipal interfaces.
+- [ ] **RAG-04**: Hybrid retrieval: BM25 initial candidate set re-ranked by embedding similarity in Phase 4; per-candidate scores logged.
 
 ### Resilience and Cost Controls
 
@@ -61,7 +75,8 @@
 |---------|--------|
 | Native mobile apps | Web-first delivery for MVP speed and focus |
 | Telephony/IVR in v1 | Deferred until web voice reliability is proven |
-| Dedicated relational data layer in v1 | Current scope does not require RDS/DynamoDB complexity |
+| EC2 deployment tier | Removed 2026-03-10 — 2-tier (Local + ECS) is sufficient |
+| Aurora PostgreSQL / pgvector | Replaced by DynamoDB + BM25 + Redis (simpler, cheaper for FAQ scale) |
 
 ## Traceability
 
@@ -72,7 +87,14 @@
 | VOIC-01 | Phase 0 | Complete (2026-03-01) |
 | VOIC-02 | Phase 0 | Complete (2026-03-01) |
 | VOIC-03 | Phase 1 | Pending |
-| VOIC-04 | Phase 1 | Pending |
+| RAG-01 | Phase 1 | Pending |
+| RAG-02 | Phase 1 | Pending |
+| AGENT-01 | Phase 1.5 | Pending |
+| AGENT-02 | Phase 1.5 | Pending |
+| AGENT-03 | Phase 1.5 | Pending |
+| AGENT-04 | Phase 1.5 (mock) → Phase 2.5 (real) | Pending |
+| AGENT-05 | Phase 1.5 (mock) → Phase 5 (real) | Pending |
+| OBS-04 | Phase 1.5 | Pending |
 | PLAT-01 | Phase 2 | Pending |
 | PLAT-02 | Phase 2 | Pending |
 | PLAT-03 | Phase 2 | Pending |
@@ -81,22 +103,25 @@
 | API-02 | Phase 2 | Pending |
 | API-03 | Phase 2 | Pending |
 | API-04 | Phase 2 | Pending |
+| VOIC-04 | Phase 2 | Pending |
+| AGENT-06 | Phase 2 | Pending |
+| OBS-06 | Phase 2.5 | Pending |
+| OBS-07 | Phase 2.5 | Pending |
 | OBS-01 | Phase 3 | Pending |
 | OBS-02 | Phase 3 | Pending |
-| RAG-01 | Phase 4 | Pending |
-| RAG-02 | Phase 5 | Pending |
-| OBS-03 | Phase 6 | Pending |
-| RAG-03 | Phase 7 | Pending |
-| RAG-04 | Phase 8 | Pending |
-| REL-01 | Phase 9 | Pending |
-| REL-02 | Phase 9 | Pending |
-| REL-03 | Phase 9 | Pending |
+| OBS-05 | Phase 3 | Pending |
+| RAG-04 | Phase 4 | Pending |
+| OBS-03 | Phase 4 | Pending |
+| RAG-03 | Phase 5 | Pending |
+| REL-01 | Phase 7 | Pending |
+| REL-02 | Phase 7 | Pending |
+| REL-03 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 24 total
-- Mapped to phases: 24
+- v1 requirements: 34 total (24 original + 10 new AGENT/OBS)
+- Mapped to phases: 34
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after phase 0 AWS inclusion update*
+*Last updated: 2026-03-10 — added AGENT-01 through AGENT-06, OBS-04 through OBS-07, updated RAG-01/RAG-04, removed EC2/Aurora from scope*
