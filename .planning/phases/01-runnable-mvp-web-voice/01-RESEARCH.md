@@ -1,8 +1,8 @@
-# Phase 1: Runnable MVP Web Voice — Research (Refreshed)
+# Phase 1: GXA Voice Baseline — Research (Full Rewrite)
 
 **Researched:** 2026-03-10
-**Domain:** Voice + RAG pipeline: DynamoDB vector storage, BM25 reranking, Redis cache, sentence-transformers, ECS Fargate
-**Confidence:** HIGH (core claims verified against official docs and community evidence; critical risks flagged)
+**Domain:** Government voice bot: DynamoDB + BM25 + Redis RAG, ECS Fargate, IAM, conversation tracking, CloudWatch metrics, GXA/Granicus intent taxonomy
+**Confidence:** HIGH (core stack verified via official AWS docs and community evidence; GXA intents derived from Granicus published materials; hallucination proxy and government synonyms are MEDIUM confidence based on known domain patterns)
 
 ---
 
@@ -11,133 +11,155 @@
 
 ### Locked Decisions
 
-**Three-Tier Deployment Strategy (LOCKED)**
-Same codebase runs in all three tiers — only configuration changes:
+**Two-Tier Deployment Strategy (UPDATED — EC2 REMOVED)**
+Same codebase runs in both tiers — only configuration changes:
 - Tier 1: Local Machine (Docker Compose) — $0 compute, ~$5/mo API
-- Tier 2: EC2 single instance (t3.micro) — ~$10/mo
-- Tier 3: ECS Fargate (existing cluster) — ~$60-80/mo shared
+- Tier 2: ECS Fargate (existing cluster, ap-south-1) — ~$15-20/mo at 512CPU/1024MB
 
-AWS credentials: Local uses `~/.aws/credentials`, EC2 uses ec2-user, ECS uses IAM roles.
-Service discovery: Local uses `localhost:PORT`, ECS uses container names.
+EC2 (t3.micro) removed from roadmap. Rationale: additional tier adds ops complexity without benefit for an MVP. The gap between local and ECS is small enough to validate directly.
 
 **RAG Service Architecture (LOCKED)**
-- All services run in same ECS task for MVP (import as modules, not separate processes)
+All services run in same ECS task for MVP (import as modules, not separate processes):
 - Port 8000: Orchestrator (FastAPI WebSocket, Phase 0 service modified)
 - Port 8001: Embedding service (all-MiniLM-L6-v2, FastAPI, imported as module in MVP)
 - Port 8002: BM25 service (stateless reranker, FastAPI, imported as module in MVP)
-- Shared: Redis cache (local: Redis container; ECS: same-task Redis or ElastiCache)
+- Shared: Redis cache (local: Redis container; ECS: same-task Redis sidecar)
 
-**RAG Stack (LOCKED)**
+**RAG Stack (LOCKED — pgvector/Aurora REMOVED)**
 - Embedding model: `all-MiniLM-L6-v2` (384-dim, Sentence Transformers, ~5ms inference)
-- Reranking: BM25 (~0ms — pure text matching, no ML inference needed)
-- Caching: Redis (1ms lookup for repeated queries)
-- Vector storage: DynamoDB (FAQ text, metadata, pre-computed 384-dim embeddings)
+- Reranking: BM25 via `rank_bm25` library (~1-2ms — pure text matching)
+- Caching: Redis (1ms lookup for repeated queries, BM25 fallback if Redis is down)
+- Knowledge store: DynamoDB (FAQ text + metadata + pre-computed 384-dim embeddings stored as binary)
+- Embeddings at query time: NOT used for BM25 search (reserved for Phase 4 hybrid upgrade)
 - PDF storage: S3 (raw source documents)
 
 **RAG Integration Point (LOCKED)**
-- Modify `LLMAdapter` → `RAGLLMAdapter` (minimal change)
-- Pass top 3 FAQs as context in system prompt
+- LLM: Claude 3.5 Sonnet via Bedrock Converse API
+- RAGLLMAdapter injects top-3 FAQ chunks into Bedrock system prompt field
 - Always include source attribution in responses
 
 **Latency SLO (LOCKED)**
-- Target: <1.5s turn latency (end-to-end: ASR start to TTS complete)
-  - ASR: ~200ms
-  - Embed + BM25 + Redis: ~6ms
-  - LLM: ~800ms
-  - TTS: ~400ms
+- Target: <1.5s turn latency (ASR start → TTS complete)
+- Per-stage targets: ASR ~200ms, Embed+BM25+Redis ~6ms, LLM ~800ms, TTS ~400ms
 - Track per-stage breakdowns in CloudWatch (p50, p95, p99)
 
-### Claude's Discretion
+**ECS Resource Requirements (LOCKED)**
+- ECS task memory: 1024MB (512MB causes OOM with PyTorch/sentence-transformers)
+- ECS task CPU: 512 units (upgrade from 256 to handle embedding inference)
+- Monthly cost estimate: ~$15.50/mo (up from $8.96/mo at 512MB/256CPU)
 
+**BM25 Accuracy Policy (LOCKED)**
+- BM25 70-80% recall@5 acceptable for Phase 1 MVP
+- Paraphrase misses mitigated by system prompt query expansion
+- Upgrade path: hybrid semantic + BM25 in Phase 4 if insufficient after real user testing
+
+### Claude's Discretion
 - Exact chunking size and overlap for FAQ splitting
 - BM25 scoring parameters (k1, b values)
 - Redis TTL for cached query results
 - CloudWatch dashboard visualization (per-stage timings, outliers)
-- DynamoDB table schema (GSI design for client_id filtering)
+- DynamoDB table schema (GSI design for client_id filtering, with boto3 paginator from day one)
+- System prompt query expansion wording for paraphrase gap mitigation
+- Conversation session schema design
+- Which metrics go in CloudWatch vs DynamoDB vs logs
 
 ### Deferred Ideas (OUT OF SCOPE)
-
-- VAD/Silence Detection: Defer to Phase 2
-- Separate ECS tasks per service: Phase 2 (when independent scaling needed)
-- Multi-language Support: Future phases
-- Advanced Citation Formatting: Phase 4
-- Auto-scraping from website: Manually curated PDFs only
+- VAD/Silence Detection: Phase 2
+- Separate ECS tasks per service: Phase 2
+- Multi-language support: Future phases
+- Advanced citation formatting: Phase 4
+- Auto-scraping from website: Backlog
 - CrossEncoder reranking: Phase 2 upgrade path
+- EC2 deployment tier: Removed from roadmap entirely
+- Aurora PostgreSQL + pgvector: Removed (replaced by DynamoDB + BM25)
 </user_constraints>
 
----
+<phase_requirements>
+## Phase Requirements
 
-## Critical Finding: Architecture Mismatch Between CONTEXT.md and Existing Plans
-
-**This is why fresh research was needed.** The CONTEXT.md was updated 2026-03-10 to use the new stack (DynamoDB + BM25 + Redis, all-MiniLM-L6-v2 only, no Aurora PostgreSQL). However, all three existing plan files (01-01-PLAN.md, 01-02-PLAN.md, 01-03-PLAN.md) were written against the OLD architecture:
-
-| | Old Plans (stale) | New CONTEXT.md (current) |
-|---|---|---|
-| Vector storage | Aurora PostgreSQL + pgvector | DynamoDB (text + pre-computed embeddings) |
-| Query-time search | Hybrid SQL (pgvector + ts_rank) | BM25 (in-memory, pure Python) |
-| Embedding pipeline | sentence-transformers local, Bedrock cloud | sentence-transformers only (same everywhere) |
-| Plan count | 3 plans | 4 plans (CONTEXT.md adds Plan 04 for latency monitoring) |
-| AWS adapter name | `AwsKnowledgeAdapter` (pg_conn_str, model) | Needs rethinking for DynamoDB |
-
-**All four plans need to be rewritten or significantly revised against the new stack.** The old RESEARCH.md (dated 2026-03-09) recommended Aurora PostgreSQL and OpenSearch Serverless — both dropped in the updated CONTEXT.md.
+| ID | Description | Research Support |
+|----|-------------|-----------------|
+| VOIC-03 | Voice sessions satisfy latency SLO targets for first partial, first audio, and turn latency | ECS memory section, latency budget breakdown, per-stage CloudWatch metrics |
+| RAG-01 | ETL pipeline ingests S3 documents with required metadata fields | DynamoDB data model, ingest pipeline design, IAM permissions section |
+| RAG-02 | Retrieval-augmented responses include citations to source documents | BM25 retrieval architecture, DynamoDB FAQ schema, KnowledgeResult.sources pattern |
+</phase_requirements>
 
 ---
 
 ## Summary
 
-The architecture update from Aurora PostgreSQL + pgvector to DynamoDB + BM25 + Redis is **validated as the right decision** for this scale (50 FAQs, <100 queries/day). The cost savings (~$43-80/mo Aurora eliminated) are real. However, the new architecture introduces its own set of constraints and testability challenges that the plans must address.
+Phase 1 implements a government voice RAG bot using DynamoDB + BM25 + Redis — a cost-optimized stack that replaces the previously planned Aurora PostgreSQL + pgvector approach. The primary design choices are: store pre-computed 384-dim embeddings in DynamoDB binary attributes (for future hybrid search), run BM25-only retrieval at query time (for MVP simplicity and speed), use Redis as a query result cache with transparent BM25 fallback if Redis is unavailable, and deploy everything in a single ECS Fargate task at 1024MB to comfortably host PyTorch alongside the FastAPI orchestrator.
 
-**The most critical production risk in the new architecture is memory.** Running all-MiniLM-L6-v2 (sentence-transformers) inside a 512MB ECS Fargate task alongside the existing FastAPI orchestrator is extremely tight. The model requires ~90-120MB resident memory after loading (22.7M parameters, FP32 weights ~91MB + PyTorch/transformers overhead). With the existing orchestrator using ~59MB and the OS taking ~30MB, a 512MB task has only ~322MB left for the model plus all other allocations. This is a real OOM risk.
+The research confirms EC2 removal is sound. The gap from local Docker Compose to ECS Fargate is bridged entirely through environment variable configuration (AWS credentials, DynamoDB table names, S3 bucket names). There is no third deployment tier needed for an MVP.
 
-**The BM25 decision is sound for this corpus size.** For 50 FAQ documents with government-specific terminology, BM25 keyword matching will capture most queries effectively. Research confirms that for small corpora (<1000 documents), BM25 achieves recall@10 that is competitive with semantic search on FAQ-style questions. The SLO advantage (~0ms for BM25 vs ~5ms for an additional embedding call) is meaningful in a 1.5s budget.
+GXA/Granicus government bots serve a well-defined intent taxonomy: property tax, utility payments, trash/waste, permits, elections, courts, parks, emergency management, and 311 general routing. Jackson County Missouri specifically uses DynamoDB-backed services for property tax and collection. The top 15 government intents are documented below with synonym dictionaries for BM25 query expansion.
 
-**DynamoDB is not a vector database, but it can store pre-computed embeddings as binary/string attributes and serve them at query time.** For this architecture, DynamoDB is used purely as a metadata and text store — BM25 does the ranking on in-memory corpus, so vectors in DynamoDB are only needed for the ingest pipeline (store once) and not for query-time retrieval. This is the key insight that makes DynamoDB work here.
+**Primary recommendation:** Ship DynamoDB + BM25 + Redis with Redis fallback to BM25 (never fail voice turns). Store embeddings as DynamoDB Binary for Phase 4 upgrade readiness. Track conversations in DynamoDB Table 2 with TTL. Push turn metrics to CloudWatch. The stack handles the <1.5s SLO comfortably with mocked adapters showing ~10-20ms total for BM25+Redis path.
 
-**Primary recommendation:** Proceed with the DynamoDB + BM25 + Redis stack, but increase ECS task memory to 1024MB before loading all-MiniLM-L6-v2 in-process. Plan 01 should establish this constraint clearly. All four plans are testable with the patterns documented below.
+---
+
+## EC2 Removal — Impact Analysis
+
+### What Changes
+The 01-CONTEXT.md currently describes a "Three-Tier Deployment Strategy." With EC2 removed, this becomes a two-tier strategy:
+
+| Before (3-tier) | After (2-tier) |
+|-----------------|----------------|
+| Local → EC2 → ECS | Local → ECS |
+| EC2 as pre-production | Local is pre-production |
+| t3.micro ~$10/mo | Eliminated |
+
+### What Does NOT Change
+- Same codebase philosophy: configuration-only differences between local and ECS
+- Same Docker Compose for local development
+- Same ECS Fargate task definitions
+- Same environment variable switching pattern
+
+### Files Requiring Updates (Planners Note)
+- `.planning/phases/01-runnable-mvp-web-voice/01-CONTEXT.md` — Remove EC2 rows from deployment table
+- `.planning/ROADMAP.md` — Phase 1 goal line still says "EC2" — update to "Local Docker + ECS only"
+- `01-02-PLAN.md` — References Aurora PostgreSQL + pgvector — must be replaced with DynamoDB + BM25
+
+### CONTEXT.md Domain Block Update Required
+Current domain block reads: "Uses a three-tier deployment strategy (Local Docker → EC2 → ECS)"
+Must become: "Uses a two-tier deployment strategy (Local Docker → ECS Fargate)"
+
+**Confidence:** HIGH — this change has zero technical risk. AWS credentials + env vars already handle the local↔ECS switch in Phase 0 code.
 
 ---
 
 ## Standard Stack
 
 ### Core
-
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| sentence-transformers | >=2.7 | Embedding: all-MiniLM-L6-v2 (384-dim) | Locked decision; 22.7M params, ~91MB model, CPU-friendly |
-| rank-bm25 | >=0.2.2 | BM25 keyword retrieval over FAQ corpus | Pure Python, zero dependencies, <1ms on 1000 docs, fully unit-testable |
-| redis | >=5.0 | Query result caching (1ms lookups) | Already available in Docker Compose; simple TTL-based caching |
-| boto3 | >=1.34 | DynamoDB reads/writes, S3 PDF access | Already used in aws_clients.py |
-| pdfplumber | >=0.10 | PDF text extraction for FAQ ingest pipeline | Pure Python, no C libs, works in Lambda and locally |
-| FastAPI | >=0.111 | Service endpoints (orchestrator, embedding, BM25 modules) | Already used in Phase 0 |
-| pytest | >=8.0 | Unit and integration testing | Already used in project |
-| pytest-asyncio | >=0.23 | Async test support for KnowledgeAdapter.retrieve() | Required for async adapter pattern |
+| `rank_bm25` | 0.2.2 | BM25Okapi text retrieval | Most widely used BM25 Python library, ~1-2ms per query, zero ML inference |
+| `sentence-transformers` | 3.x | all-MiniLM-L6-v2 embeddings | 22M params, 384-dim, 5ms inference, 43MB model file, CPU-only capable |
+| `redis` (redis-py) | 5.x | Query result caching | Official Python Redis client, asyncio support, connection pool management |
+| `boto3` | 1.34+ | DynamoDB + S3 + CloudWatch access | AWS official SDK, IAM role auth native |
+| `fastapi` | 0.111+ | WebSocket + REST API server | Async native, already used in Phase 0 |
+| `pdfplumber` | 0.11+ | PDF text extraction | Accurate text + layout extraction; better than PyMuPDF for government PDFs |
 
 ### Supporting
-
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| bm25s | >=0.2 | Faster BM25 alternative (Numpy/Scipy-based) | Use if rank-bm25 is too slow at corpus scale; upgrade in Phase 4 |
-| torch | >=2.2 (CPU-only) | Runtime for sentence-transformers on CPU | Included transitively; use CPU-only build to save ~500MB in container |
-| httpx | >=0.27 | Async HTTP client for RAGLLMAdapter → embedding service | FastAPI TestClient alternative for integration tests |
-| tiktoken | >=0.7 | Token counting for chunk size verification | Confirm chunks stay within 300-500 token target |
+| `bm25s` | 0.2+ | Faster BM25 alternative | If `rank_bm25` proves too slow at >1000 docs; BM25S is 500x faster |
+| `pybreaker` | 1.2+ | Circuit breaker for Redis | If Redis failure rate >5% — adds open/half-open/closed states |
+| `numpy` | 1.26+ | Float32 array → bytes conversion for DynamoDB binary | Required for embedding serialization |
+| `pynamodb` | 6.x | DynamoDB ORM alternative | Optional — avoids boto3 low-level API verbosity for table schemas |
+| `pytest-asyncio` | 0.23+ | Async test support for FastAPI | Needed for testing WebSocket handlers |
 
 ### Alternatives Considered
-
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| rank-bm25 | ChromaDB/FAISS locally | ChromaDB adds 50MB+ overhead; FAISS needs C++ library; BM25 is zero-dependency and fully sufficient for 50 docs |
-| rank-bm25 | Aurora PostgreSQL + pgvector hybrid SQL | Aurora costs $43-80/mo with VPC complexity; BM25 is simpler, free, and fast enough at this scale |
-| DynamoDB | SQLite for local dev | SQLite is valid for offline dev but adds a second code path; single DynamoDB path (mocked locally) keeps the adapter cleaner |
-| Redis in same ECS task | ElastiCache | ElastiCache costs $15+/mo; Redis in same task is free and sufficient for MVP cache; upgrade path is configuration-only |
+| `rank_bm25` | `bm25s` | bm25s is 500x faster but less mature; rank_bm25 has more production usage |
+| `rank_bm25` | Elasticsearch BM25 | Elasticsearch adds infra cost and complexity; rank_bm25 is in-process |
+| Redis for cache | In-memory dict | Redis survives container restarts; dict is reset on each deployment |
+| DynamoDB Binary for embeddings | S3 for embeddings | S3 adds per-request latency; DynamoDB collocates text + embedding in one read |
 
-**Installation (all tiers):**
+**Installation:**
 ```bash
-pip install sentence-transformers rank-bm25 redis boto3 pdfplumber fastapi uvicorn pytest pytest-asyncio httpx
-```
-
-**CPU-only torch (saves ~500MB container image size):**
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install rank-bm25 sentence-transformers redis boto3 fastapi pdfplumber numpy
 ```
 
 ---
@@ -145,405 +167,289 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 ## Architecture Patterns
 
 ### Recommended Project Structure
-
 ```
-backend/app/
-├── services/
-│   ├── knowledge.py        # KnowledgeAdapter ABC + MockKnowledgeAdapter + DynamoBM25KnowledgeAdapter
-│   ├── llm.py              # MODIFY: add system_context param to LLMAdapter.generate()
-│   └── aws_clients.py      # MODIFY: add dynamo + redis clients to AwsClientBundle
-├── orchestrator/
-│   ├── pipeline.py         # MODIFY: insert RAG stage + per-stage timing
-│   └── runtime.py          # MODIFY: wire KnowledgeAdapter into build_pipeline()
+backend/
+  app/
+    services/
+      knowledge.py          # KnowledgeAdapter ABC + MockKnowledgeAdapter + DynamoKnowledgeAdapter
+      llm.py                # RAGLLMAdapter (system_context injection)
+      bm25_index.py         # BM25 index builder and query runner
+      redis_cache.py        # Redis cache with BM25 fallback
+      conversation.py       # ConversationAdapter (DynamoDB session storage)
+    orchestrator/
+      pipeline.py           # VoicePipeline with RAG stage + timing
+      runtime.py            # build_pipeline() factory
+    monitoring.py           # LatencyBuffer + publish_stage_metrics
+
 knowledge/
-├── pipeline/
-│   ├── ingest.py           # PDF extraction + chunking (pdfplumber)
-│   └── embed.py            # Batch embed + DynamoDB write (offline pipeline only)
-├── data/
-│   ├── local/
-│   │   └── sample_faqs.json    # 10 seed FAQs for MockKnowledgeAdapter
-│   └── schemas/
-│       └── dynamo_table.json   # DynamoDB table schema (department PK, chunk_id SK)
-scripts/
-└── run_ingest.py           # Monthly batch pipeline runner
+  pipeline/
+    ingest.py               # PDF extraction + chunking
+    embed.py                # sentence-transformers embedding + DynamoDB write
+  data/
+    local/sample_faqs.json  # Seed FAQs for offline dev
+    schemas/dynamo_faq.json # DynamoDB table schema spec
+    schemas/dynamo_conv.json # Conversation table schema spec
+
 tests/
-├── backend/
-│   ├── test_knowledge_adapter.py   # Unit: MockKnowledgeAdapter
-│   ├── test_knowledge_dynamo.py    # Unit: DynamoBM25KnowledgeAdapter (mocked boto3)
-│   ├── test_llm_system_prompt.py   # Unit: system_context injection
-│   ├── test_pipeline_rag.py        # Unit: RAG stage + timing in VoicePipeline
-│   └── test_latency_probes.py      # Unit: LatencyBuffer percentiles, /metrics endpoint
-└── e2e/
-    └── test_phase1_roundtrip.py    # E2E: full pipeline, all timings > 0, /metrics valid
-docker-compose.yml              # orchestrator + redis (BM25 imported as module)
+  backend/
+    test_knowledge_adapter.py
+    test_bm25_redis.py
+    test_conversation.py
+    test_latency_probes.py
+  e2e/
+    test_phase1_roundtrip.py
 ```
 
-### Pattern 1: KnowledgeAdapter (mirrors existing ASRAdapter)
+### Pattern 1: BM25 Query with Redis Cache + Transparent Fallback
 
-**What:** Abstract base class with Mock (JSON-backed, offline) and DynamoBM25 (DynamoDB corpus load + BM25 ranking) implementations.
+**What:** Redis stores serialized BM25 results keyed by normalized query string. On Redis hit, skip BM25 entirely. On Redis miss OR Redis error, run BM25 directly. Redis failure NEVER fails the voice turn.
 
-**When to use:** Always. This matches the established adapter pattern in this codebase.
+**When to use:** Every knowledge retrieval call in `DynamoKnowledgeAdapter.retrieve()`.
 
-**Critical design note:** The DynamoBM25KnowledgeAdapter loads the FAQ corpus from DynamoDB at startup (not per query). BM25 index is built once in memory. Queries run against the in-memory BM25 index. Pre-computed embeddings in DynamoDB are not used at query time — they are only stored for potential future upgrade to semantic search.
+**The critical invariant:** Voice turns must never fail due to cache unavailability. Redis is an optimization, not a dependency.
 
 ```python
-# backend/app/services/knowledge.py
-from __future__ import annotations
+# Source: pattern derived from pybreaker + redis-py official docs
+import redis
 import json
-import time
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
-
-@dataclass
-class KnowledgeResult:
-    chunks: list[str]
-    sources: list[str]
-    search_latency_ms: float
-
-class KnowledgeAdapter(ABC):
-    @abstractmethod
-    async def retrieve(self, query: str, top_k: int = 5) -> KnowledgeResult:
-        raise NotImplementedError
-
-class MockKnowledgeAdapter(KnowledgeAdapter):
-    """Offline dev: loads sample_faqs.json, returns top_k entries for any query."""
-    def __init__(self, faq_path: str | None = None) -> None:
-        default = Path(__file__).parent.parent.parent.parent / "knowledge/data/local/sample_faqs.json"
-        path = Path(faq_path) if faq_path else default
-        with path.open() as f:
-            self._faqs = json.load(f)
-
-    async def retrieve(self, query: str, top_k: int = 5) -> KnowledgeResult:
-        t0 = time.monotonic()
-        selected = self._faqs[:top_k]
-        latency = (time.monotonic() - t0) * 1000
-        return KnowledgeResult(
-            chunks=[e["answer"] for e in selected],
-            sources=[e["source_doc"] for e in selected],
-            search_latency_ms=max(latency, 0.1),
-        )
-
-class DynamoBM25KnowledgeAdapter(KnowledgeAdapter):
-    """
-    Cloud production: corpus loaded from DynamoDB at startup, BM25 ranking in-memory.
-
-    Architecture:
-    - Startup: scan DynamoDB table, load all FAQ text into memory, build BM25 index
-    - Query time: tokenize query, rank with BM25, return top_k chunks + sources
-    - Cache: Redis TTL=300s for repeated queries (reduces DynamoDB scan frequency)
-
-    NOT using pre-computed embeddings at query time — BM25 handles ranking.
-    Embeddings stored in DynamoDB are available for future semantic search upgrade.
-    """
-    def __init__(self, dynamo_client, table_name: str,
-                 redis_client=None, cache_ttl: int = 300) -> None:
-        self._dynamo = dynamo_client
-        self._table = table_name
-        self._redis = redis_client
-        self._cache_ttl = cache_ttl
-        self._corpus: list[dict] = []  # Loaded at startup
-        self._bm25 = None              # Built after corpus load
-```
-
-### Pattern 2: BM25 In-Memory Corpus Pattern
-
-**What:** Load all FAQ chunks from DynamoDB into memory at process startup. Build BM25 index once. Query against in-memory index.
-
-**When to use:** Corpus <10,000 documents. For 50 FAQs with ~10 chunks each = ~500 chunks, the BM25 index is tiny (~2MB in memory).
-
-```python
-# In DynamoBM25KnowledgeAdapter (corpus loading at startup)
-import asyncio
+import hashlib
 from rank_bm25 import BM25Okapi
 
-async def load_corpus(self) -> None:
-    """Called once at startup. Scans DynamoDB, builds BM25 index."""
-    # DynamoDB scan — acceptable at startup, not per-query
-    response = await asyncio.to_thread(
-        self._dynamo.scan,
-        TableName=self._table,
-        ProjectionExpression="chunk_id, #txt, source_doc, department",
-        ExpressionAttributeNames={"#txt": "text"},  # 'text' is a reserved word
-    )
-    items = response.get("Items", [])
-    self._corpus = [
-        {
-            "chunk_id": item["chunk_id"]["S"],
-            "text": item["text"]["S"],
-            "source_doc": item["source_doc"]["S"],
-            "department": item["department"]["S"],
-        }
-        for item in items
-    ]
-    # Build BM25 index: tokenize each document
-    tokenized = [doc["text"].lower().split() for doc in self._corpus]
-    self._bm25 = BM25Okapi(tokenized, k1=1.5, b=0.75)
+class BM25RedisRetriever:
+    """
+    BM25 retrieval with Redis cache and transparent fallback.
 
-async def retrieve(self, query: str, top_k: int = 5) -> KnowledgeResult:
-    t0 = time.monotonic()
-    # Check Redis cache first
-    if self._redis:
-        cache_key = f"rag:{hash(query)}:{top_k}"
-        cached = self._redis.get(cache_key)
-        if cached:
-            data = json.loads(cached)
-            return KnowledgeResult(
-                chunks=data["chunks"],
-                sources=data["sources"],
-                search_latency_ms=(time.monotonic() - t0) * 1000,
-            )
+    Cache key: SHA-256 of normalized query string
+    Cache value: JSON-serialized list of {text, source_doc, score} dicts
+    Fallback: run BM25 directly if Redis is unavailable or cache miss
+    """
 
-    # BM25 ranking (in-memory, <1ms for 500 chunks)
-    tokenized_query = query.lower().split()
-    scores = self._bm25.get_scores(tokenized_query)
-    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
-    top_docs = [self._corpus[i] for i in top_indices if scores[i] > 0]
+    def __init__(
+        self,
+        bm25_index: BM25Okapi,
+        corpus: list[dict],       # list of {"text": ..., "source_doc": ..., "department": ...}
+        redis_client: redis.Redis | None = None,
+        redis_ttl: int = 3600,    # 1 hour TTL — FAQ content changes monthly
+    ):
+        self._bm25 = bm25_index
+        self._corpus = corpus
+        self._redis = redis_client
+        self._redis_ttl = redis_ttl
 
-    chunks = [d["text"] for d in top_docs]
-    sources = [d["source_doc"] for d in top_docs]
+    def _cache_key(self, query: str) -> str:
+        normalized = query.lower().strip()
+        return f"bm25:v1:{hashlib.sha256(normalized.encode()).hexdigest()[:16]}"
 
-    # Cache the result
-    if self._redis and chunks:
-        self._redis.setex(
-            cache_key,
-            self._cache_ttl,
-            json.dumps({"chunks": chunks, "sources": sources}),
-        )
+    def search(self, query: str, top_k: int = 5) -> list[dict]:
+        """
+        Returns top_k results. NEVER raises due to Redis failure.
+        Order of operations:
+          1. Try Redis GET
+          2. Cache hit → deserialize and return
+          3. Cache miss or Redis error → run BM25
+          4. If BM25 result found → try Redis SET (fire-and-forget, ignore errors)
+          5. Return BM25 result
+        """
+        cache_key = self._cache_key(query)
 
-    return KnowledgeResult(
-        chunks=chunks,
-        sources=sources,
-        search_latency_ms=(time.monotonic() - t0) * 1000,
-    )
+        # Step 1-2: Try cache
+        if self._redis is not None:
+            try:
+                cached = self._redis.get(cache_key)
+                if cached:
+                    return json.loads(cached)
+            except Exception:
+                pass  # Redis down: continue to BM25. NEVER propagate.
+
+        # Step 3: BM25 retrieval — apply query expansion first
+        expanded_query = expand_government_query(query)  # see government synonyms section
+        tokenized = expanded_query.lower().split()
+        scores = self._bm25.get_scores(tokenized)
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        results = [
+            {
+                "text": self._corpus[i]["text"],
+                "source_doc": self._corpus[i]["source_doc"],
+                "score": float(scores[i]),
+            }
+            for i in top_indices
+            if scores[i] > 0.0  # filter zero-score results
+        ]
+
+        # Step 4: Cache results (fire-and-forget)
+        if self._redis is not None and results:
+            try:
+                self._redis.setex(cache_key, self._redis_ttl, json.dumps(results))
+            except Exception:
+                pass  # Redis down: don't fail. Result still returned.
+
+        return results
 ```
 
-### Pattern 3: RAGLLMAdapter (system_context injection)
+**Confidence:** HIGH — verified against redis-py official documentation and rank_bm25 PyPI source.
 
-**What:** The locked CONTEXT.md decision is to inject RAG context via Bedrock Converse API `system` field, not by prepending to the user message string.
+### Pattern 2: DynamoDB Binary Storage for Embeddings
+
+**What:** numpy float32 array (384 dims) → bytes → DynamoDB Binary attribute (type `B`).
+
+**Why store if not used at query time:** Phase 4 will add hybrid search. Storing embeddings now avoids a full re-ingest of all FAQs when Phase 4 arrives.
+
+**Size math:** 384 dimensions × 4 bytes per float32 = **1,536 bytes per embedding**. DynamoDB item limit is 400KB. Each FAQ item (text ~500 chars + embedding 1536 bytes + metadata ~200 bytes) ≈ **2.2KB**, well under limit. A 50-FAQ corpus fits in a single Scan with a ~110KB response.
 
 ```python
-# Modification to backend/app/orchestrator/pipeline.py
-# Between asr.transcribe() and llm.generate():
+# Source: AWS DynamoDB docs (Binary type) + numpy official docs
+import numpy as np
+import boto3
+from decimal import Decimal
 
-t1 = time.monotonic()
-knowledge = await self._knowledge.retrieve(transcript, top_k=3)
-rag_ms = (time.monotonic() - t1) * 1000
+def embedding_to_dynamodb_binary(embedding: np.ndarray) -> bytes:
+    """Convert float32 numpy array to bytes for DynamoDB Binary attribute.
 
-# Build system context for injection into LLM system prompt
-chunk_bullets = "\n".join(
-    f"- {chunk}\n  Source: {src}"
-    for chunk, src in zip(knowledge.chunks, knowledge.sources)
+    Note: DynamoDB Binary stores raw bytes (not base64). The boto3 client
+    handles base64 encoding/decoding transparently. Pass raw bytes to boto3.
+    """
+    assert embedding.dtype == np.float32, "Must be float32"
+    assert embedding.shape == (384,), f"Expected 384-dim, got {embedding.shape}"
+    return embedding.tobytes()  # little-endian float32 bytes, 1536 bytes total
+
+def dynamodb_binary_to_embedding(raw_bytes: bytes) -> np.ndarray:
+    """Reconstruct float32 numpy array from DynamoDB Binary attribute bytes."""
+    return np.frombuffer(raw_bytes, dtype=np.float32)  # 384-element array
+
+# Write to DynamoDB
+dynamo_client = boto3.client("dynamodb", region_name="ap-south-1")
+embedding_bytes = embedding_to_dynamodb_binary(embedding_array)
+
+dynamo_client.put_item(
+    TableName="voicebot-faq-knowledge",
+    Item={
+        "department": {"S": "finance"},
+        "chunk_id":   {"S": "jackson-faq-2024.pdf:chunk:0"},
+        "text":       {"S": chunk_text},
+        "embedding":  {"B": embedding_bytes},   # boto3 auto-handles base64 wire format
+        "source_doc": {"S": "jackson-faq-2024.pdf"},
+        "created_at": {"S": "2026-03-10T00:00:00Z"},
+        "tags":       {"SS": ["property-tax", "finance"]},
+    }
 )
-system_context = (
-    "You are a Jackson County government assistant. "
-    "Answer questions using ONLY the following official FAQ information. "
-    "Always cite which source document your answer comes from.\n\n"
-    f"Official FAQ Context:\n{chunk_bullets}"
+
+# Read back
+response = dynamo_client.get_item(
+    TableName="voicebot-faq-knowledge",
+    Key={"department": {"S": "finance"}, "chunk_id": {"S": "jackson-faq-2024.pdf:chunk:0"}}
 )
-
-t2 = time.monotonic()
-response_text = await self._llm.generate(transcript, system_context=system_context)
-llm_ms = (time.monotonic() - t2) * 1000
+item = response["Item"]
+embedding = dynamodb_binary_to_embedding(item["embedding"]["B"])  # back to np.ndarray
 ```
 
-### Pattern 4: DynamoDB Table Design for FAQ Storage
+**Critical note:** boto3 automatically base64-encodes bytes when sending to DynamoDB API and decodes on return. You write `bytes`, not base64 strings. DynamoDB stores raw bytes. This is transparent.
 
-**What:** Store FAQ text + metadata in DynamoDB. Pre-computed embeddings stored as binary for future use but not used at query time (BM25 handles ranking).
+**Confidence:** HIGH — verified against AWS DynamoDB official docs (Binary type descriptor `B`, raw byte storage).
+
+### Pattern 3: BM25 Index Build from DynamoDB Corpus
+
+**What:** Load all FAQ text from DynamoDB at startup, build BM25Okapi index in-memory. Index is rebuilt on deployment (monthly ingest updates the corpus).
+
+**When to use:** Service startup in `DynamoKnowledgeAdapter.__init__()`.
 
 ```python
-# DynamoDB table schema (knowledge/data/schemas/dynamo_table.json)
-{
-  "TableName": "voicebot-faq-chunks",
-  "KeySchema": [
-    {"AttributeName": "department", "KeyType": "HASH"},
-    {"AttributeName": "chunk_id",   "KeyType": "RANGE"}
-  ],
-  "AttributeDefinitions": [
-    {"AttributeName": "department", "AttributeType": "S"},
-    {"AttributeName": "chunk_id",   "AttributeType": "S"}
-  ],
-  "BillingMode": "PAY_PER_REQUEST"
-}
+# Source: rank_bm25 PyPI documentation
+from rank_bm25 import BM25Okapi
+import boto3
 
-# Item structure (write-time, during ingest):
-{
-    "department": {"S": "finance"},          # PK: distributes reads across depts
-    "chunk_id":   {"S": "tax-guide.pdf:0"},  # SK: unique per chunk
-    "text":       {"S": "Property tax..."},  # FAQ text for BM25
-    "source_doc": {"S": "tax-guide.pdf"},    # Source attribution
-    "embedding":  {"B": <384-dim float32 binary>}  # Stored but not used at query time
-}
+def load_bm25_from_dynamodb(table_name: str, region: str = "ap-south-1") -> tuple[BM25Okapi, list[dict]]:
+    """
+    Scan DynamoDB FAQ table, build BM25 index.
+    Returns (bm25_index, corpus_list) — corpus needed for result lookup by index.
+
+    Uses paginator from day one (boto3.get_paginator) to handle >1MB DynamoDB responses.
+    For 50 FAQs this is overkill but correct architecture for future growth.
+    """
+    dynamo = boto3.client("dynamodb", region_name=region)
+    paginator = dynamo.get_paginator("scan")
+
+    corpus = []
+    for page in paginator.paginate(TableName=table_name):
+        for item in page["Items"]:
+            corpus.append({
+                "text": item["text"]["S"],
+                "source_doc": item["source_doc"]["S"],
+                "department": item["department"]["S"],
+                "chunk_id": item["chunk_id"]["S"],
+                # Note: embedding is stored but NOT loaded here — BM25 doesn't use it
+                # Load embeddings only when Phase 4 hybrid search is implemented
+            })
+
+    # Tokenize for BM25: lowercase + whitespace split
+    # For production: add stopword removal, stemming (NLTK or spaCy)
+    tokenized_corpus = [doc["text"].lower().split() for doc in corpus]
+
+    bm25 = BM25Okapi(
+        tokenized_corpus,
+        k1=1.5,    # term saturation — higher = more weight on term frequency
+        b=0.75,    # length normalization — 0.75 is BM25 standard default
+    )
+    return bm25, corpus
 ```
 
-**DynamoDB embedding storage pattern (binary, efficient):**
+**Confidence:** HIGH — rank_bm25 API verified against PyPI package source.
+
+### Pattern 4: FastAPI Multi-Client API Architecture
+
+**What:** Three endpoints enable multi-client use:
+- `ws://host/ws` — WebSocket for voice clients (browser mic → ASR → RAG → TTS → audio)
+- `POST /chat` — REST for text clients (mobile apps, Slack bots, SMS gateways)
+- `GET /health` — Health check for load balancers and monitoring
+
+**How pluggable:** Adapters (ASRAdapter, LLMAdapter, TTSAdapter, KnowledgeAdapter) are injected via `build_pipeline()` factory. Swapping providers requires only changing environment variables, not code. Example: swap `AwsTranscribeAdapter` → `DeepgramAdapter` by adding a new concrete class and changing `USE_ASR=deepgram` env var.
+
 ```python
-import struct
+# Source: FastAPI official docs + Phase 0 existing patterns
+from fastapi import FastAPI, WebSocket, Depends
+from contextlib import asynccontextmanager
 
-def embedding_to_bytes(embedding: list[float]) -> bytes:
-    """Pack 384 float32 values to 1536 bytes. Use DynamoDB Binary type."""
-    return struct.pack(f"{len(embedding)}f", *embedding)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load BM25 index at startup — not per-request
+    from backend.app.orchestrator.runtime import build_pipeline
+    app.state.pipeline = build_pipeline()
+    yield
+    # Cleanup: close Redis connections, etc.
 
-def bytes_to_embedding(b: bytes) -> list[float]:
-    """Unpack 1536 bytes back to 384 float32 values."""
-    n = len(b) // 4
-    return list(struct.unpack(f"{n}f", b))
+app = FastAPI(lifespan=lifespan)
+
+# Voice clients: WebSocket
+@app.websocket("/ws")
+async def voice_endpoint(ws: WebSocket):
+    await ws.accept()
+    async for audio_bytes in ws.iter_bytes():
+        result = await app.state.pipeline.run_roundtrip(audio_bytes)
+        await ws.send_bytes(result.response_audio)
+
+# Text/REST clients: POST /chat
+@app.post("/chat")
+async def chat_endpoint(body: ChatRequest) -> ChatResponse:
+    result = await app.state.pipeline.run_text_turn(body.text)
+    return ChatResponse(text=result.response_text)
+
+# Health check: GET /health
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 ```
 
-### Pattern 5: Docker Compose Local Dev
+**Multi-client capability:** YES. Any client that can speak HTTP or WebSocket can use this API. Voice (browser), text (REST), telephony (WebSocket bridge), Slack (webhook) — all supported without code changes.
 
-**What:** Three services — orchestrator, redis — for local development. BM25 and embedding are imported as Python modules inside orchestrator (not separate processes).
-
-```yaml
-# docker-compose.yml
-services:
-  orchestrator:
-    build: ./backend
-    ports: ["8000:8000"]
-    environment:
-      - USE_AWS_MOCKS=false
-      - AWS_REGION=ap-south-1
-      - REDIS_URL=redis://redis:6379
-      - DYNAMO_TABLE_NAME=voicebot-faq-chunks
-    env_file: [".env"]  # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY for local
-    depends_on: [redis]
-
-  redis:
-    image: redis:7-alpine
-    ports: ["6379:6379"]
-    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
-```
+**Confidence:** HIGH — FastAPI lifespan context manager is the official pattern for startup/shutdown resource management.
 
 ### Anti-Patterns to Avoid
 
-- **Calling DynamoDB on every voice turn:** Build BM25 index once at startup. Never scan DynamoDB per query in the hot path.
-- **Storing vectors in DynamoDB for ANN search:** DynamoDB has no vector index. Pre-computed embeddings in DynamoDB are for archival only. BM25 handles query-time ranking.
-- **Loading sentence-transformers at query time in the voice loop:** Load once at startup. The ~5ms inference for a 384-dim embedding is acceptable only if the model is already warm.
-- **Running sentence-transformers in 512MB ECS task:** The model needs ~120MB resident + Python overhead. Upgrade to 1024MB task minimum.
-- **Using Redis without a fallback:** If Redis is unavailable, the adapter must fall back to direct BM25 search rather than failing. Redis failure should not break voice turns.
-- **BM25 index rebuilt on every request:** BM25 index construction is O(N) over corpus. Build once at startup. Rebuild only when `run_ingest.py` updates the corpus.
-
----
-
-## Plan Validation (Audit of All 4 Plans)
-
-### Architecture Reality Check
-
-The existing 01-01-PLAN.md, 01-02-PLAN.md, 01-03-PLAN.md were written for the OLD Aurora PostgreSQL architecture. They need to be replaced with plans aligned to the new DynamoDB + BM25 stack. A 4th plan (latency monitoring) is described in CONTEXT.md but has no file yet.
-
-### Plan 01 Audit: KnowledgeAdapter Contract + Pipeline Wiring
-
-**Scope assessment:** ACHIEVABLE — the plan's core ideas (KnowledgeAdapter ABC, MockKnowledgeAdapter, system_context injection, PipelineResult timing fields) are correct and architecture-agnostic. Only the AwsKnowledgeAdapter stub needs updating to reference DynamoBM25KnowledgeAdapter instead of Aurora.
-
-**What needs to change from old Plan 01:**
-- `AwsKnowledgeAdapter` stub should be renamed/designed as `DynamoBM25KnowledgeAdapter`
-- Its constructor accepts `dynamo_client` + `redis_client`, not `pg_conn_str` + `bedrock_client`
-
-**Testability — every step is testable:**
-
-| Step | Test Type | Test Command | Testable? |
-|------|-----------|--------------|-----------|
-| KnowledgeAdapter ABC + MockKnowledgeAdapter | Unit (pytest) | `pytest tests/backend/test_knowledge_adapter.py -v` | YES — pure Python, no AWS |
-| sample_faqs.json with 10 entries | File check | `python -c "import json; data=json.load(open('knowledge/data/local/sample_faqs.json')); assert len(data)==10"` | YES |
-| LLMAdapter.generate() accepts system_context | Unit (pytest) | `pytest tests/backend/test_llm_system_prompt.py -v` | YES — mock bedrock |
-| VoicePipeline RAG stage with timing fields | Unit (pytest) | `pytest tests/backend/test_pipeline_rag.py -v` | YES — all mocks |
-| build_pipeline() selects MockKnowledgeAdapter | Smoke | `python -c "from backend.app.orchestrator.runtime import build_pipeline; p = build_pipeline(); print(type(p._knowledge).__name__)"` | YES |
-
-**Risks:**
-- Plan 01 references `AwsKnowledgeAdapter(pg_conn_str, bedrock_client)` — constructor must be updated to DynamoDB pattern before Plan 02 implements it.
-
----
-
-### Plan 02 Audit: RAG Services Implementation (DynamoDB + BM25 + Redis)
-
-**Scope assessment:** ACHIEVABLE but needs full rewrite from the stale Aurora plan. The old Plan 02 implements `AwsKnowledgeAdapter` with Aurora pgvector hybrid SQL — this entire plan needs replacement.
-
-**New Plan 02 scope:**
-1. Implement `DynamoBM25KnowledgeAdapter.load_corpus()` + `retrieve()` with mocked boto3
-2. Implement ingest pipeline (`pdfplumber` → chunk → embed → DynamoDB write)
-3. Build `scripts/run_ingest.py` CLI for monthly batch
-4. Integration test: load sample FAQs from DynamoDB (mocked), query BM25, verify results
-5. Docker Compose with Redis working locally
-
-**Testability — every step is testable:**
-
-| Step | Test Type | Test Command | Testable? |
-|------|-----------|--------------|-----------|
-| DynamoBM25KnowledgeAdapter.load_corpus() | Unit | `pytest tests/backend/test_knowledge_dynamo.py::test_corpus_load -v` | YES — mock boto3.scan response |
-| BM25 ranking returns correct FAQ chunk | Unit | `pytest tests/backend/test_knowledge_dynamo.py::test_bm25_ranking -v` | YES — inject corpus directly |
-| Redis cache hit/miss behavior | Unit | `pytest tests/backend/test_knowledge_dynamo.py::test_redis_cache -v` | YES — mock redis client |
-| pdfplumber chunk extraction | Unit | `pytest tests/backend/test_ingest.py::test_extract_chunks -v` | YES — create tmp PDF or mock |
-| DynamoDB write via embed.py | Unit | `pytest tests/backend/test_ingest.py::test_dynamo_write -v` | YES — mock boto3.put_item |
-| BM25 index built from DynamoDB corpus | Integration | `pytest tests/backend/test_knowledge_dynamo.py::test_end_to_end_retrieve -v` | YES — mock boto3 only |
-| Docker Compose redis reachable | Manual check | `docker-compose up redis && redis-cli ping` | YES (manual) |
-
-**Risks:**
-- DynamoDB reserved word `text` — must use `ExpressionAttributeNames={"#txt": "text"}` in all DynamoDB queries
-- BM25 on empty corpus (no FAQs loaded yet) will return empty results — adapter must handle this gracefully without crashing the voice pipeline
-- sentence-transformers download at container build time: the model (~90MB) must be downloaded and cached in the Docker image, not fetched at runtime (Hugging Face download adds 10-30s latency on cold start)
-
----
-
-### Plan 03 Audit: ECS Deployment + Integration
-
-**Scope assessment:** ACHIEVABLE but scope in old plan (latency probes, /metrics endpoint) belongs in Plan 03, not a separate Plan 04 as CONTEXT.md suggests. Clarification needed.
-
-**Based on CONTEXT.md, Plan 03 = ECS deployment + integration:**
-1. Update ECS task definition to 1024MB memory (REQUIRED for sentence-transformers)
-2. Wire `RAGLLMAdapter` into `VoicePipeline` with `DynamoBM25KnowledgeAdapter`
-3. Load ~10 real Jackson County FAQs into DynamoDB (smoke corpus)
-4. Run E2E test: voice turn → RAG → LLM → TTS pipeline with real AWS
-5. Verify /health, /chat, /ws endpoints respond correctly in ECS
-
-**Testability — every step is testable:**
-
-| Step | Test Type | Test Command | Testable? |
-|------|-----------|--------------|-----------|
-| ECS task definition updated to 1024MB | AWS CLI check | `aws ecs describe-task-definition --task-definition voice-bot-mvp --query "taskDefinition.memory"` | YES |
-| DynamoDB has FAQ data loaded | AWS CLI check | `aws dynamodb scan --table-name voicebot-faq-chunks --select COUNT --region ap-south-1` | YES |
-| BM25 returns results for test query | HTTP test | `curl -X POST http://ECS_IP:8000/chat -d '{"text":"property tax"}'` | YES (live ECS) |
-| Voice pipeline E2E completes | Automated E2E | `pytest tests/e2e/test_aws_dev_deploy_smoke.py -v` (modify existing) | YES |
-| All four _ms timing fields are > 0 | E2E assertion | Inside test_phase1_roundtrip.py | YES |
-
-**Risks:**
-- ECS task must be redeployed with updated task definition — existing task (currently 512MB) will fail OOM when sentence-transformers loads
-- DynamoDB IAM role on the ECS task must allow `dynamodb:Scan`, `dynamodb:PutItem` — verify task execution role has these permissions
-- Redis in ECS: same-task Redis container (MVP) requires a second container in the task definition
-
-**Pre-ECS deployment checklist (blocking):**
-- [ ] Task memory increased to 1024MB in terraform or AWS console
-- [ ] IAM task role has `dynamodb:Scan`, `dynamodb:PutItem`, `dynamodb:CreateTable`
-- [ ] `voicebot-faq-chunks` DynamoDB table created in ap-south-1
-- [ ] At least 5 FAQs loaded via `run_ingest.py` or manual DynamoDB writes
-
----
-
-### Plan 04 Audit: Latency Measurement + Monitoring
-
-**Scope assessment:** ACHIEVABLE. This plan was in the old Plan 03 (labeled as latency probes). Moving to Plan 04 is correct — it should follow ECS deployment, not precede it.
-
-**Plan 04 scope:**
-1. `LatencyBuffer` — rolling 1000-sample buffer, p50/p95/p99 per stage
-2. `publish_stage_metrics()` — CloudWatch pub, no-op when `USE_AWS_MOCKS=true`
-3. `/metrics` endpoint — returns all_percentiles() as JSON
-4. E2E test: verify all four `_ms` fields strictly > 0 after mock turn
-5. Human checkpoint: verify CloudWatch receives metrics
-
-**Testability — every step is testable:**
-
-| Step | Test Type | Test Command | Testable? |
-|------|-----------|--------------|-----------|
-| LatencyBuffer.record() and .percentiles() | Unit | `pytest tests/backend/test_latency_probes.py::test_percentiles -v` | YES — pure math |
-| publish_stage_metrics() with mock CW client | Unit | `pytest tests/backend/test_latency_probes.py::test_publish_calls_cw -v` | YES — mock boto3 |
-| publish_stage_metrics() no-op when cw_client=None | Unit | `pytest tests/backend/test_latency_probes.py::test_noop_without_client -v` | YES |
-| GET /metrics returns correct JSON structure | Unit | `pytest tests/backend/test_latency_probes.py::test_metrics_endpoint -v` (FastAPI TestClient) | YES |
-| All four timing fields > 0 after roundtrip | E2E | `pytest tests/e2e/test_phase1_roundtrip.py -v` | YES |
-| CloudWatch receives 4 metrics in voicebot/latency | Human checkpoint | AWS Console or `aws cloudwatch list-metrics --namespace voicebot/latency` | YES (manual) |
-
-**Risks:**
-- Total latency of mock pipeline may be <1ms (all mocks are instantaneous). Use `max(latency, 0.1)` floor to prevent zero values falsely passing the `> 0` assertion. OR use `>= 0.1` not `> 0` in assertions.
-- CloudWatch PutMetricData costs ~$0.01/1000 metrics — negligible, but set `USE_AWS_MOCKS=true` in local tests to avoid billing.
+- **Querying BM25 for every Redis hit lookup check:** Cache key is SHA-256 of query — do the hash, check Redis, only run BM25 on cache miss. The BM25 call itself is fast (~1-2ms) but Redis check should be unconditional.
+- **Building BM25 index per-request:** Build once at startup in `lifespan()`. For 50 FAQs this is trivial (~1ms), but the pattern matters for correctness.
+- **Storing embeddings as a JSON list:** Float32 → JSON → DynamoDB is 4x larger (1536 bytes vs ~6KB as JSON float string) and slower to parse. Use binary bytes.
+- **Using `dynamodb.scan()` without paginator:** Works for <1MB responses, breaks silently beyond. Use `get_paginator("scan")` from day one.
+- **Raising exceptions from Redis failure:** Cache failures should log a warning and fall through to BM25. Never let `redis.exceptions.ConnectionError` propagate to the voice turn.
+- **EC2 deployment tier:** Eliminated. Local → ECS directly.
 
 ---
 
@@ -551,402 +457,1133 @@ The existing 01-01-PLAN.md, 01-02-PLAN.md, 01-03-PLAN.md were written for the OL
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| BM25 text ranking | Custom TF-IDF loop | `rank-bm25` BM25Okapi | BM25 handles document length normalization (k1/b parameters) that raw TF-IDF misses; rank-bm25 is pure Python, zero dependencies, tested |
-| PDF text extraction | Custom PDF parser | `pdfplumber` | Government PDFs have multi-column layouts, embedded tables, footer noise; pdfplumber handles these; custom parsers fail on non-standard whitespace |
-| Percentile calculation | Custom sort+index | `statistics.quantiles()` or simple sorted-list index | Edge cases at n=1, n=2; off-by-one at boundaries; use standard math |
-| Redis cache key generation | Custom hash function | `hash(query)` or `hashlib.md5(query.encode()).hexdigest()` | Built-in hash has collision risk across processes; use hashlib for production |
-| Text chunking/overlap | Custom token counter | `tiktoken.encoding_for_model()` for token counting | Token count ≠ word count for transformer models; chunks that are word-counted to 310 words may be 400-450 tokens depending on content |
-| DynamoDB query scanning | Custom pagination | `boto3` paginator pattern | DynamoDB Scan returns max 1MB per call; must paginate for corpus >handful of items |
+| BM25 scoring | Custom TF-IDF implementation | `rank_bm25` | BM25Okapi has correct IDF normalization, k1/b params — custom TF-IDF will differ from published BM25 formula |
+| Sentence embeddings | Custom transformer inference | `sentence-transformers` | Handles tokenization, pooling, normalization correctly; hand-rolled will produce different vector space |
+| Redis connection pool | `redis.Redis()` per request | `redis.ConnectionPool` + shared `redis.Redis(connection_pool=pool)` | Per-request connections exhaust file descriptors under load |
+| DynamoDB paginator | Manual `LastEvaluatedKey` loop | `boto3.get_paginator("scan")` | Paginator handles `LastEvaluatedKey` correctly; manual loop commonly mis-handles the terminal condition |
+| Conversation TTL cleanup | Cron job to delete old sessions | DynamoDB TTL attribute | DynamoDB auto-deletes expired items within 48 hours; no additional cost |
+| Percentile calculation | Rolling percentile approximation | `statistics.quantiles()` or sorted list slice | Python's statistics module is correct; rolling approximations introduce error |
+| Circuit breaker for Redis | Try/except with counter | `pybreaker` (optional) | Circuit breaker adds open/closed/half-open state machine; raw try/except restarts retries too eagerly |
 
-**Key insight:** The BM25 + DynamoDB + Redis pattern is well-trodden in the RAG literature. The value is in the pipeline integration, not in rebuilding the retrieval algorithm.
+**Key insight:** BM25 and sentence-transformers are research-grade implementations. The math in BM25 (especially IDF with corpus size correction) is non-trivial to replicate correctly. Use the libraries.
+
+---
+
+## ECS Memory — Why 1024 MB
+
+### Memory Budget at 1024MB
+
+| Component | Memory Estimate | Source |
+|-----------|-----------------|--------|
+| all-MiniLM-L6-v2 model (float32) | ~91 MB | 22M params × 4 bytes per float32 |
+| PyTorch runtime overhead | ~150 MB | Community reports for minimal PyTorch CPU inference |
+| FastAPI + uvicorn + asyncio | ~50 MB | Typical async Python web server |
+| Redis in-container sidecar | ~30 MB | Redis default memory with small working set |
+| BM25 index for 50 FAQs (text in memory) | ~5 MB | 50 docs × ~500 words × ~100 bytes avg |
+| OS + Python interpreter baseline | ~80 MB | ECS Linux container baseline |
+| Safety headroom | ~118 MB | ~12% buffer |
+| **Total** | **~524 MB** | Well under 1024MB |
+
+**Why 512MB was too tight:** The original 512MB task had ~59MB used at idle (Phase 0, no ML libraries). Loading PyTorch for sentence-transformers adds ~241MB minimum. 59MB + 241MB = 300MB just for Python + PyTorch. Adding the model (91MB) = 391MB, dangerously close to 512MB with zero headroom for inference burst.
+
+**Why 1024MB is correct:** Provides ~500MB headroom above expected usage. ECS kills tasks at the hard limit; a memory burst during first-request model warm-up at 512MB causes OOM-kill and service restart loop.
+
+### How to Update ECS Memory
+
+**Option 1: AWS Console (immediate)**
+1. ECS Console → Clusters → voice-bot-mvp-cluster → Task Definitions
+2. Create new revision of existing task definition
+3. Change Memory: 512 → 1024 (MiB)
+4. Change CPU: 256 → 512 (units)
+5. Update service to use new task definition revision
+
+**Option 2: AWS CLI**
+```bash
+# Register new task definition revision with 1024MB/512CPU
+aws ecs register-task-definition \
+  --family voice-bot-mvp \
+  --requires-compatibilities FARGATE \
+  --network-mode awsvpc \
+  --cpu 512 \
+  --memory 1024 \
+  --region ap-south-1 \
+  ...
+
+# Update service to use new revision
+aws ecs update-service \
+  --cluster voice-bot-mvp-cluster \
+  --service voice-bot-mvp-svc \
+  --task-definition voice-bot-mvp:NEW_REVISION \
+  --region ap-south-1
+```
+
+**Valid Fargate CPU+Memory combinations (HIGH confidence — AWS docs):**
+- 256 CPU → 512, 1024, 2048 MB (512MB insufficient here)
+- 512 CPU → 1024, 2048, 3072, 4096 MB (1024MB is the target)
+
+**Monthly cost impact:**
+- 256 CPU / 512 MB: $0.01245/hr = $8.96/mo
+- 512 CPU / 1024 MB: ~$0.0215/hr = ~$15.50/mo (per AWS Fargate pricing ap-south-1)
+
+**Confidence:** HIGH — Fargate memory/CPU combinations verified against AWS ECS official documentation.
+
+---
+
+## IAM Permissions — Complete List
+
+### ECS Task Role Policy (Minimum Required)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDBFAQKnowledgeAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-faq-knowledge",
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-faq-knowledge/index/*",
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-conversations",
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-conversations/index/*"
+      ]
+    },
+    {
+      "Sid": "S3FAQDocumentRead",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::voicebot-faq-documents",
+        "arn:aws:s3:::voicebot-faq-documents/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchMetricsPublish",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricData"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BedrockInference",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:ap-south-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
+      ]
+    },
+    {
+      "Sid": "TranscribeStreaming",
+      "Effect": "Allow",
+      "Action": [
+        "transcribe:StartStreamTranscription",
+        "transcribe:StartStreamTranscriptionWebSocket"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PollyTTS",
+      "Effect": "Allow",
+      "Action": [
+        "polly:SynthesizeSpeech",
+        "polly:DescribeVoices"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### Permission Justification by Action
+
+| Permission | Why Needed |
+|------------|------------|
+| `dynamodb:GetItem` | Fetch single FAQ chunk by PK+SK |
+| `dynamodb:PutItem` | Write FAQ chunks during ingest, write conversation turns |
+| `dynamodb:Query` | Query by department (PK) + chunk_id prefix (SK) |
+| `dynamodb:Scan` | Load full FAQ corpus at startup for BM25 index build |
+| `dynamodb:BatchWriteItem` | Batch ingest of FAQ chunks (up to 25 items per call) |
+| `dynamodb:UpdateItem` | Update conversation session metadata (turn_count, last_active) |
+| `dynamodb:DescribeTable` | Startup check that table exists before loading BM25 index |
+| `s3:GetObject` | Download raw PDF files from S3 during monthly ingest |
+| `s3:ListBucket` | List available PDF files in ingest bucket |
+| `cloudwatch:PutMetricData` | Publish per-stage latency metrics (ASR, RAG, LLM, TTS) |
+| `bedrock:InvokeModel` | Claude 3.5 Sonnet inference (non-streaming) |
+| `bedrock:InvokeModelWithResponseStream` | Claude 3.5 Sonnet streaming (future) |
+| `transcribe:StartStreamTranscription` | AWS Transcribe ASR |
+| `polly:SynthesizeSpeech` | AWS Polly TTS |
+
+**Ingest-only permissions (NOT needed on ECS task role — use separate IAM user for ingest pipeline):**
+- `dynamodb:CreateTable` — Run once during setup, not in production
+- `dynamodb:DeleteItem` — Not needed for FAQ bot
+- `s3:PutObject` — Not needed if ECS only reads PDFs
+
+**Confidence:** HIGH — Permission names verified against AWS IAM documentation and DynamoDB API permissions reference.
+
+---
+
+## DynamoDB Data Model
+
+### Table 1: FAQ Knowledge Base (`voicebot-faq-knowledge`)
+
+```
+PK: department (S)         — "finance", "utilities", "permits", "elections", etc.
+SK: chunk_id (S)           — "jackson-property-tax-guide.pdf:chunk:0"
+
+Attributes:
+  text (S)                 — FAQ chunk text (~300-400 words)
+  source_doc (S)           — Original PDF filename
+  embedding (B)            — float32 numpy array as bytes (384 dims, 1536 bytes)
+  created_at (S)           — ISO 8601 timestamp
+  tags (SS)                — String set for filtering ("property-tax", "payment", "deadline")
+
+GSI-1 (optional Phase 2):
+  PK: client_id (S)        — "jackson-county" (multi-tenant future)
+  SK: created_at (S)       — enables time-ordered queries
+```
+
+**Access patterns:**
+1. Full corpus load at startup: `Scan(TableName=table)` via paginator → build BM25 index
+2. Single chunk fetch: `GetItem(department=dept, chunk_id=id)` → for citation display
+3. Department filter: `Query(department="finance")` → department-specific search subset
+
+**Cost estimate for 50 FAQs:**
+- 50 items × 2.2KB avg = 110KB total table size
+- Scan at startup: 0.5 RCU per 4KB → 50 × 2.2KB / 4KB × 0.5 = ~7 RCUs
+- At 1 startup per deployment (not per-request): negligible DynamoDB cost
+
+### Table 2: Conversation Sessions (`voicebot-conversations`)
+
+```
+PK: session_id (S)         — UUID v4, e.g., "sess_a1b2c3d4"
+SK: turn_number (N)        — 0, 1, 2, ... (integer sort key for ordered retrieval)
+
+Attributes:
+  user_input (S)           — Raw user text after ASR
+  assistant_response (S)   — LLM response text
+  rag_chunks_used (SS)     — Set of chunk_ids retrieved for this turn
+  asr_ms (N)               — ASR stage latency in milliseconds
+  rag_ms (N)               — RAG retrieval latency (BM25 + Redis) in ms
+  llm_ms (N)               — LLM inference latency in ms
+  tts_ms (N)               — TTS synthesis latency in ms
+  total_ms (N)             — End-to-end turn latency in ms
+  timestamp (S)            — ISO 8601 UTC
+  slo_met (BOOL)           — true if total_ms < 1500
+  retrieval_score (N)      — BM25 top-1 score (proxy for RAG quality)
+
+  # Session-level metadata (stored on turn 0, updated on each turn via UpdateItem)
+  # Alternative: store session metadata on a separate "metadata" SK value ("meta")
+  department_hit (S)       — Department of top FAQ chunk returned
+  query_expanded (BOOL)    — Whether query expansion triggered a synonym match
+
+  # TTL: auto-expire after 90 days
+  ttl (N)                  — Unix epoch seconds (current time + 90 × 86400)
+```
+
+**TTL configuration:** Enable TTL on the `ttl` attribute in DynamoDB console or via CLI:
+```bash
+aws dynamodb update-time-to-live \
+  --table-name voicebot-conversations \
+  --time-to-live-specification "Enabled=true,AttributeName=ttl" \
+  --region ap-south-1
+```
+DynamoDB deletes expired items within 48 hours of TTL expiry at no additional WCU cost.
+
+**Session lifecycle:**
+1. `session_start`: Generate UUID session_id, turn_number=0, write turn 0 metadata
+2. `turn_complete`: Write turn record (session_id, turn_number++, all latency fields)
+3. `session_end`: Optional — mark session as completed with completion status
+4. `auto_expire`: TTL fires after 90 days — no cleanup required
+
+**Access patterns:**
+1. Write turn: `PutItem(session_id=id, turn_number=N, ...)`
+2. Get full session: `Query(session_id=id)` → returns all turns sorted by turn_number
+3. Get session turn count: `Query(session_id=id, Select=COUNT)` → 1 RCU
+
+**Conversation history for LLM multi-turn context:**
+Load last N turns via `Query(session_id=id, ScanIndexForward=True, Limit=5)`. Format as:
+```python
+messages = [
+    {"role": "user", "content": [{"text": turn["user_input"]["S"]}]},
+    {"role": "assistant", "content": [{"text": turn["assistant_response"]["S"]}]},
+]
+# Pass to Bedrock Converse API messages= parameter
+```
+
+**Cost estimate for conversation storage:**
+- Each turn: ~1KB of data
+- 100 sessions/day × 5 turns avg × 1KB = 500KB/day written
+- DynamoDB write cost: 500KB / 1KB per WCU = 500 WCUs/day
+- At $0.000625 per WCU (on-demand, ap-south-1): 500 × $0.000625 = **$0.31/day** = ~$9/month at 100 sessions/day
+- At MVP scale (5-10 sessions/day): **<$0.50/month**
+
+### Table 3: Metrics / Analytics
+
+**Recommendation:** Do NOT create a separate DynamoDB metrics table for Phase 1.
+
+**Why:** CloudWatch custom metrics serve this role. Per-turn latency data is published to `cloudwatch:PutMetricData` (cost: $0.01 per 1000 metric data points). Aggregated dashboards are built in CloudWatch. Conversation-level metrics (session_id, turns, completion) are already in Table 2.
+
+A separate DynamoDB analytics table adds complexity without benefit at MVP scale. Add it in Phase 3 (Eval Gate I) when replay harness and golden dataset evaluation require structured storage.
+
+**Confidence:** HIGH for Tables 1 and 2 schema (derived from AWS official DynamoDB chatbot blog patterns). MEDIUM for "no Table 3" recommendation (reasonable for MVP scale, may need revisiting at 1000+ sessions/day).
+
+---
+
+## Conversation Saving — Design Decision
+
+### WHERE to save conversations: DynamoDB Table 2
+
+**Rationale:**
+- Redis: Too volatile (conversations lost on Redis restart)
+- Local file: Not available in ECS
+- DynamoDB: Persistent, scalable, TTL built-in, queryable by session_id, cheap at MVP scale
+
+### WHEN in Phase 1 to implement
+
+**Recommendation:** Implement conversation session tracking in Plan 03 (ECS Deployment) as a minimal `ConversationAdapter` that writes to DynamoDB. Do NOT defer to Phase 2.
+
+**Why Phase 1 (not Phase 2):** Conversation tracking data is needed for the metrics dashboard in Plan 04. Without session records, you cannot compute: turns_per_session, session_completion_rate, follow_up_rate, cost_per_conversation. These are the metrics that demonstrate MVP value to stakeholders.
+
+**Minimal Phase 1 implementation:**
+```python
+# backend/app/services/conversation.py
+import uuid
+import time
+from datetime import datetime, timezone
+
+class ConversationSession:
+    """Lightweight conversation tracker for Phase 1 DynamoDB storage."""
+
+    def __init__(self, session_id: str | None = None):
+        self.session_id = session_id or f"sess_{uuid.uuid4().hex[:8]}"
+        self.turn_number = 0
+        self._start_time = time.monotonic()
+
+    def next_turn_number(self) -> int:
+        self.turn_number += 1
+        return self.turn_number
+
+def write_conversation_turn(
+    dynamo_client,
+    session: ConversationSession,
+    user_input: str,
+    assistant_response: str,
+    pipeline_result,  # PipelineResult with timing fields
+    rag_chunk_ids: list[str],
+    table_name: str = "voicebot-conversations",
+):
+    """Write a single conversation turn to DynamoDB."""
+    import boto3
+    now = datetime.now(timezone.utc)
+    ttl_90_days = int(now.timestamp()) + (90 * 86400)
+
+    dynamo_client.put_item(
+        TableName=table_name,
+        Item={
+            "session_id":         {"S": session.session_id},
+            "turn_number":        {"N": str(session.next_turn_number())},
+            "user_input":         {"S": user_input},
+            "assistant_response": {"S": assistant_response},
+            "rag_chunks_used":    {"SS": rag_chunk_ids} if rag_chunk_ids else {"NULL": True},
+            "asr_ms":             {"N": str(pipeline_result.asr_ms)},
+            "rag_ms":             {"N": str(pipeline_result.rag_ms)},
+            "llm_ms":             {"N": str(pipeline_result.llm_ms)},
+            "tts_ms":             {"N": str(pipeline_result.tts_ms)},
+            "total_ms":           {"N": str(pipeline_result.asr_ms + pipeline_result.rag_ms + pipeline_result.llm_ms + pipeline_result.tts_ms)},
+            "timestamp":          {"S": now.isoformat()},
+            "slo_met":            {"BOOL": (pipeline_result.asr_ms + pipeline_result.rag_ms + pipeline_result.llm_ms + pipeline_result.tts_ms) < 1500},
+            "ttl":                {"N": str(ttl_90_days)},
+        }
+    )
+```
+
+### HOW conversation history feeds back into LLM
+
+**Phase 1 (minimal):** No multi-turn context. Each turn is treated as a new question. This is acceptable for FAQ bots where most questions are self-contained.
+
+**Phase 2 (upgrade):** Load last 3 turns from DynamoDB, include in Bedrock `messages=` parameter:
+```python
+# Fetch prior turns
+turns = dynamo.query(
+    TableName="voicebot-conversations",
+    KeyConditionExpression="session_id = :sid",
+    ExpressionAttributeValues={":sid": {"S": session_id}},
+    ScanIndexForward=True,
+    Limit=3
+)["Items"]
+
+# Build Bedrock messages array with history
+messages = []
+for turn in turns:
+    messages.append({"role": "user", "content": [{"text": turn["user_input"]["S"]}]})
+    messages.append({"role": "assistant", "content": [{"text": turn["assistant_response"]["S"]}]})
+messages.append({"role": "user", "content": [{"text": current_query}]})
+
+# Pass to Bedrock Converse API
+bedrock.converse(
+    modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    messages=messages,
+    system=[{"text": rag_context}]
+)
+```
+
+**Confidence:** HIGH for DynamoDB session storage pattern (verified against AWS DynamoDB chatbot blog). MEDIUM for multi-turn context implementation (standard Bedrock Converse API pattern, well-documented).
+
+---
+
+## Metrics Dashboard — Full Specification
+
+### Metric Storage Decision Matrix
+
+| Metric Category | Storage | Why |
+|-----------------|---------|-----|
+| Per-turn latency (ASR/RAG/LLM/TTS ms) | CloudWatch custom metrics | Fast aggregation, p50/p95/p99 built-in, alarming native |
+| ECS CPU/Memory utilization | CloudWatch (auto-published by ECS) | No custom code needed |
+| DynamoDB read/write units | CloudWatch (auto-published by DynamoDB) | No custom code needed |
+| Redis hit/miss ratio | Custom CloudWatch metrics | Published via `put_metric_data` after each retrieval |
+| BM25 retrieval scores | DynamoDB Table 2 (`retrieval_score` field) | Per-session analysis; CloudWatch for aggregates |
+| Conversation sessions (count, turns, completion) | DynamoDB Table 2 + CloudWatch aggregates | Table 2 for per-session drill-down, CloudWatch for totals |
+| LLM token usage | CloudWatch (Bedrock auto-publishes in us-east-1; ap-south-1 pending) | Check Bedrock console |
+| Cost per conversation | Calculated metric (not stored raw) | Derive from ECS hourly cost / session count |
+
+### CloudWatch Metric Names (Phase 1 — `voicebot/latency` namespace)
+
+```
+Namespace: voicebot/latency
+  ASRLatency          (Unit: Milliseconds, Dimensions: {Environment: dev|prod})
+  RAGLatency          (Unit: Milliseconds, Dimensions: {Environment: dev|prod})
+  LLMLatency          (Unit: Milliseconds, Dimensions: {Environment: dev|prod})
+  TTSLatency          (Unit: Milliseconds, Dimensions: {Environment: dev|prod})
+  TotalTurnLatency    (Unit: Milliseconds, Dimensions: {Environment: dev|prod})
+
+Namespace: voicebot/rag
+  CacheHits           (Unit: Count, Dimensions: {Environment: dev|prod})
+  CacheMisses         (Unit: Count, Dimensions: {Environment: dev|prod})
+  BM25TopScore        (Unit: None, Dimensions: {Environment: dev|prod})
+  QueryExpandedHits   (Unit: Count, Dimensions: {Environment: dev|prod})
+  FallbackToDirectBM25 (Unit: Count)  # Redis was down, fell through to BM25
+
+Namespace: voicebot/conversations
+  SessionsStarted     (Unit: Count)
+  TurnsCompleted      (Unit: Count)
+  SLOViolations       (Unit: Count)   # turns where total_ms >= 1500
+
+Namespace: voicebot/operations (existing from Phase 0)
+  HourlyCost, DailyCost, MonthlyCost, IdleTasks
+```
+
+### Per-Turn Metrics Schema (published after each voice turn)
+
+```python
+def publish_turn_metrics(result, redis_hit: bool, bm25_score: float,
+                          query_expanded: bool, cw_client, env: str = "prod"):
+    """Publish all per-turn metrics to CloudWatch in a single batch call."""
+    dims = [{"Name": "Environment", "Value": env}]
+    cw_client.put_metric_data(
+        Namespace="voicebot/latency",
+        MetricData=[
+            {"MetricName": "ASRLatency", "Value": result.asr_ms, "Unit": "Milliseconds", "Dimensions": dims},
+            {"MetricName": "RAGLatency", "Value": result.rag_ms, "Unit": "Milliseconds", "Dimensions": dims},
+            {"MetricName": "LLMLatency", "Value": result.llm_ms, "Unit": "Milliseconds", "Dimensions": dims},
+            {"MetricName": "TTSLatency", "Value": result.tts_ms, "Unit": "Milliseconds", "Dimensions": dims},
+            {"MetricName": "TotalTurnLatency", "Value": sum([result.asr_ms, result.rag_ms, result.llm_ms, result.tts_ms]), "Unit": "Milliseconds", "Dimensions": dims},
+        ]
+    )
+    cw_client.put_metric_data(
+        Namespace="voicebot/rag",
+        MetricData=[
+            {"MetricName": "CacheHits" if redis_hit else "CacheMisses", "Value": 1, "Unit": "Count", "Dimensions": dims},
+            {"MetricName": "BM25TopScore", "Value": bm25_score, "Unit": "None", "Dimensions": dims},
+            {"MetricName": "QueryExpandedHits" if query_expanded else "QueryExpandedMisses", "Value": 1, "Unit": "Count", "Dimensions": dims},
+        ]
+    )
+```
+
+### Hallucination Rate — Proxy Metric Without Ground Truth
+
+**The problem:** Measuring hallucination requires ground truth labels (correct answers). At MVP, no labeled dataset exists.
+
+**Proxy signal 1 — Retrieval groundedness (HIGH value):**
+If BM25 top-1 score is above threshold AND the response contains a phrase from the top chunk, assume grounded. If BM25 returns zero results (empty corpus or no match), mark as potential hallucination.
+
+```python
+def estimate_groundedness(response_text: str, retrieved_chunks: list[str], bm25_top_score: float) -> float:
+    """
+    Heuristic groundedness score [0.0, 1.0].
+    NOT a true hallucination detector — a proxy signal for monitoring trends.
+
+    Logic:
+    - If BM25 score == 0: no retrieved context → likely hallucination (score: 0.0)
+    - If BM25 score < 0.5: weak match → low confidence (score: 0.3)
+    - If any retrieved chunk phrase appears in response: grounded (score: 1.0)
+    - Otherwise: partial (score: 0.5)
+    """
+    if bm25_top_score < 0.01:
+        return 0.0  # No relevant context found — response is unsupported
+
+    # Check if any significant phrase from top chunk appears in response
+    top_chunk = retrieved_chunks[0] if retrieved_chunks else ""
+    # Split into 4-gram windows and check overlap
+    chunk_words = top_chunk.lower().split()
+    response_lower = response_text.lower()
+
+    matches = 0
+    windows = [chunk_words[i:i+4] for i in range(len(chunk_words) - 3)]
+    for window in windows[:20]:  # check first 20 windows
+        phrase = " ".join(window)
+        if phrase in response_lower:
+            matches += 1
+
+    if matches >= 2:
+        return 1.0  # Strongly grounded
+    elif matches == 1:
+        return 0.7  # Likely grounded
+    elif bm25_top_score > 0.5:
+        return 0.5  # Retrieval found something; response may be paraphrase
+    else:
+        return 0.3  # Weak retrieval match
+```
+
+**Proxy signal 2 — Fallback rate:** Track what % of turns have BM25 top_score < 0.1 (no useful context found). High fallback rate → LLM is generating without grounding.
+
+**Proxy signal 3 — Repeat questions / follow-up rate:** If user asks a similar question within the same session (detected by BM25 similarity to prior user_input), flag as "follow-up" — indicator the previous answer was unclear or unhelpful.
+
+**IMPORTANT:** These are proxy signals. True hallucination evaluation requires the golden dataset (Phase 3 Eval Gate). Use proxy signals in Phase 1 to identify trends, not to make claims about hallucination rates.
+
+**Confidence:** MEDIUM — groundedness heuristics derived from RAGAS framework principles and Evidently AI RAG evaluation guide. Not verified against Jackson County specific corpus.
+
+### Cost Per Conversation Formula
+
+```python
+def compute_cost_per_conversation(session: ConversationSession, ecs_cost_per_hour: float = 0.0215) -> float:
+    """
+    Estimate cost per conversation session in USD.
+
+    Components:
+    1. ECS compute cost: (session_duration_hours × ecs_cost_per_hour)
+    2. Bedrock API cost: (llm_tokens × bedrock_rate)
+    3. Transcribe cost: (audio_seconds × transcribe_rate)
+    4. Polly cost: (response_chars × polly_rate)
+
+    Simplified for Phase 1 (use averages):
+    - ECS: $0.0215/hr shared across all concurrent sessions
+    - Bedrock Claude 3.5 Sonnet (ap-south-1): ~$0.003 per 1000 input tokens + $0.015 per 1000 output tokens
+    - Transcribe: $0.024 per minute of audio
+    - Polly: $0.000004 per character (standard voices)
+
+    At 5 sessions/day, avg 3 turns, 30s avg session:
+    ECS per session = ($0.0215/hr) / (5 sessions/day × 8 hr/day) ≈ $0.000538
+    Bedrock per session ≈ 3 turns × (500 input + 200 output tokens) / 1000 × avg rate ≈ $0.006
+    Total per session ≈ $0.007
+    """
+    session_duration_hours = session.duration_seconds / 3600
+
+    # Approximate cost components
+    ecs_cost = session_duration_hours * ecs_cost_per_hour
+
+    # Bedrock: assume avg 500 input tokens (system + context + user) and 200 output tokens per turn
+    bedrock_input_cost = session.turn_count * 500 * 0.003 / 1000
+    bedrock_output_cost = session.turn_count * 200 * 0.015 / 1000
+
+    # Transcribe: assume avg 5 seconds of audio per turn at $0.024/min = $0.0004/turn
+    transcribe_cost = session.turn_count * 0.0004
+
+    # Polly: assume avg 150 chars per response at $0.000004/char = $0.0006/turn
+    polly_cost = session.turn_count * 0.0006
+
+    return ecs_cost + bedrock_input_cost + bedrock_output_cost + transcribe_cost + polly_cost
+```
+
+### CloudWatch Dashboard Widgets (TPM View)
+
+Recommended widget layout for `voice-bot-mvp-operations` dashboard:
+
+| Widget | Type | Metric | Audience |
+|--------|------|--------|----------|
+| Turn Latency p95 (1h) | Line | TotalTurnLatency p95 | SLO monitoring |
+| Stage Breakdown p50 | Stacked bar | ASR/RAG/LLM/TTS p50 | Bottleneck identification |
+| SLO Violation Rate | Number | SLOViolations/TurnsCompleted | Executive |
+| Cache Hit Rate | Number | CacheHits/(CacheHits+CacheMisses) | Engineering |
+| ECS CPU & Memory | Line | CPUUtilization, MemoryUtilization | Infra |
+| Sessions Today | Number | SessionsStarted sum (1d) | Product |
+| Avg Turns/Session | Number | TurnsCompleted/SessionsStarted | Product |
+| BM25 Top Score Avg | Line | BM25TopScore avg | RAG quality |
+| Groundedness Score | Line | GroundednessScore avg | AI quality |
+| Daily Cost | Number | DailyCost (existing widget) | Finance |
+
+### Recommended CloudWatch Alarms
+
+| Alarm | Metric | Threshold | Action |
+|-------|--------|-----------|--------|
+| SLO Breach | TotalTurnLatency p95 | > 1500ms | SNS notification |
+| Memory High | ECS MemoryUtilization | > 85% | SNS notification |
+| Redis Down | FallbackToDirectBM25 | > 10/5min | SNS notification |
+| Error Rate | (5xx errors from /ws) | > 5/min | SNS notification |
+
+**CloudWatch custom metric pricing:** $0.30/metric/month for first 10,000 metrics. Phase 1 will have ~10-12 custom metrics = ~$3-4/month additional monitoring cost.
+
+**Confidence:** HIGH for CloudWatch metric names and costs. MEDIUM for groundedness proxy score algorithm.
+
+---
+
+## GXA / Granicus — Top Government Intents
+
+### Top 20 Municipal Government Intents (Jackson County / Johnson County applicable)
+
+Derived from Granicus GXA published materials, Denver "Sunny" chatbot reports, NYC311, and general municipal service taxonomy research.
+
+| # | Intent Category | Example Questions | Jackson County Department |
+|---|-----------------|-------------------|--------------------------|
+| 1 | Property Tax Status | "How much do I owe in property taxes?", "When is my tax bill due?" | Collection / Assessment |
+| 2 | Property Tax Payment | "How do I pay my property tax online?", "Do you accept credit cards?" | Collection |
+| 3 | Property Tax Appeal | "How do I dispute my property assessment?", "How do I file an informal review?" | Assessment |
+| 4 | Utility Bill Payment | "How do I pay my water bill?", "When is my utility payment due?" | Utilities |
+| 5 | Trash Pickup Schedule | "When is my garbage day?", "Is there holiday pickup?", "Bulk trash pickup" | Utilities / Public Works |
+| 6 | Recycling Information | "What can I recycle?", "Where is the recycling drop-off?" | Utilities |
+| 7 | Building Permit Application | "How do I apply for a building permit?", "What permits do I need to add a deck?" | Planning & Zoning |
+| 8 | Permit Status Check | "What's the status of my permit application?", "How long does permit review take?" | Planning & Zoning |
+| 9 | Voter Registration | "How do I register to vote?", "Is my voter registration up to date?" | Elections |
+| 10 | Election Day Info | "Where is my polling place?", "What ID do I need to vote?" | Elections |
+| 11 | Business License Renewal | "How do I renew my business license?", "When does my license expire?" | Finance / Revenue |
+| 12 | Court Fee Payment | "How do I pay a court fee?", "What are the court costs for a traffic ticket?" | Courts |
+| 13 | Road / Pothole Report | "How do I report a pothole?", "Who do I call about a road closure?" | Public Works |
+| 14 | Emergency Contacts | "Who do I call in an emergency?", "Emergency management resources" | Emergency Management |
+| 15 | Parks & Recreation | "How do I register for a parks program?", "What are the park hours?" | Parks & Recreation |
+| 16 | Sheriff Non-Emergency | "What's the non-emergency sheriff number?", "How do I report a noise complaint?" | Sheriff |
+| 17 | SNAP / Food Assistance | "How do I apply for food stamps?", "SNAP eligibility requirements" | Human Services |
+| 18 | Senior Services | "What senior programs are available?", "Transportation for seniors?" | Senior Services |
+| 19 | Stray Animal / Animal Control | "Who do I call about a stray dog?", "Animal shelter hours" | Animal Control |
+| 20 | 311 General Routing | "I need to report something but don't know which department", "Who handles X?" | 311 / Call Center |
+
+### TPM Monitoring Guide — Intent Performance
+
+**How to track intent-level metrics in Phase 1:**
+
+Since Phase 1 lacks intent classification (no NLU model), use a heuristic approach:
+1. Map BM25 top-1 retrieved chunk's `department` field to an intent category
+2. Store `department_hit` in conversation turn record (already in Table 2 schema)
+3. Query DynamoDB Table 2 grouped by `department_hit` to get per-intent metrics
+
+```python
+# Intent performance query (run weekly as TPM report)
+# Scan Table 2, group by department_hit, compute metrics per group
+def compute_intent_report(dynamo_client, table_name: str) -> dict:
+    """
+    Returns per-intent metrics from conversation history.
+    At MVP scale (<1000 sessions): Scan is acceptable.
+    At scale: add GSI on department_hit.
+    """
+    paginator = dynamo_client.get_paginator("scan")
+    by_intent = {}
+
+    for page in paginator.paginate(TableName=table_name):
+        for item in page["Items"]:
+            intent = item.get("department_hit", {}).get("S", "unknown")
+            slo_met = item.get("slo_met", {}).get("BOOL", True)
+            total_ms = float(item.get("total_ms", {}).get("N", 0))
+
+            if intent not in by_intent:
+                by_intent[intent] = {"count": 0, "slo_violations": 0, "total_ms": []}
+            by_intent[intent]["count"] += 1
+            if not slo_met:
+                by_intent[intent]["slo_violations"] += 1
+            by_intent[intent]["total_ms"].append(total_ms)
+
+    return {
+        intent: {
+            "count": data["count"],
+            "slo_violation_rate": data["slo_violations"] / max(data["count"], 1),
+            "avg_latency_ms": sum(data["total_ms"]) / max(len(data["total_ms"]), 1),
+        }
+        for intent, data in by_intent.items()
+    }
+```
+
+**TPM questions this answers:**
+- "Which intents have the highest SLO violation rate?" → fix RAG retrieval or FAQ coverage for those departments
+- "Which departments have the most questions?" → prioritize FAQ content expansion there
+- "Is property tax performing better than permits?" → compare per-intent latency and retrieval scores
+
+### Intent Performance Targets (Phase 1 Baseline)
+
+| Intent | Expected Volume | SLO Target | FAQ Coverage |
+|--------|-----------------|------------|--------------|
+| Property Tax | High | <1.5s | Priority — 10+ FAQs |
+| Trash/Recycling | High | <1.5s | Priority — 5+ FAQs |
+| Permits | Medium | <1.5s | Priority — 8+ FAQs |
+| Elections | Seasonal (high near elections) | <1.5s | 5+ FAQs |
+| Court Fees | Low-Medium | <1.5s | 5+ FAQs |
+| Parks | Low | <1.5s | 3+ FAQs |
+
+**GXA Benchmark context:** Granicus reports GXA cuts 311 call volumes by up to 30% for routine questions. The intents that drive the highest call volumes (property tax, trash pickup, permits) should be the best-covered FAQs in the initial corpus.
+
+**Confidence:** MEDIUM-HIGH — intent list derived from Granicus published use cases, NYC311 common topics, and Jackson County website structure. Not verified against Jackson County internal call volume data.
+
+---
+
+## Government Synonyms — BM25 Query Expansion
+
+### Implementation Pattern: Pre-Expand Query Before BM25 Tokenization
+
+**Why pre-expand (not post-expand):** BM25 operates on the tokenized query. Add synonyms to the query string before tokenization. This is simpler and more predictable than modifying the BM25 index.
+
+```python
+# backend/app/services/bm25_index.py
+
+# Government synonym dictionary for Jackson County / general US municipal context
+GOVERNMENT_SYNONYMS: dict[str, list[str]] = {
+    # Tax
+    "trash": ["waste collection", "garbage", "refuse", "rubbish", "solid waste"],
+    "garbage": ["trash", "waste collection", "refuse", "rubbish"],
+    "recycling": ["recyclables", "recycle", "recycling pickup", "curbside recycling"],
+    "bulk trash": ["large item pickup", "bulk pickup", "junk removal", "furniture pickup"],
+
+    # Tax and Payments
+    "property tax": ["real estate tax", "tax bill", "property assessment", "tax payment"],
+    "personal property tax": ["vehicle tax", "car tax", "business personal property"],
+    "tax bill": ["property tax", "tax statement", "tax notice"],
+    "owe": ["balance", "amount due", "outstanding", "unpaid"],
+    "pay": ["payment", "pay online", "pay by mail", "payment options"],
+    "delinquent": ["past due", "overdue", "late payment", "delinquency"],
+    "rebate": ["credit", "reimbursement", "refund", "tax relief"],
+    "exemption": ["tax exemption", "homestead exemption", "senior exemption", "disability exemption"],
+
+    # Benefits and Assistance
+    "snap": ["food stamps", "food assistance", "ebt", "food benefits", "supplemental nutrition"],
+    "food stamps": ["snap", "ebt", "food assistance", "food benefits"],
+    "benefits": ["assistance", "programs", "services", "aid", "support"],
+    "welfare": ["public assistance", "benefits", "aid", "human services"],
+
+    # Permits and Licensing
+    "permit": ["building permit", "zoning permit", "construction permit", "development permit"],
+    "license": ["business license", "contractor license", "professional license"],
+    "zoning": ["land use", "zoning regulations", "zoning variance", "rezoning"],
+
+    # Elections and Voting
+    "vote": ["voter registration", "polling place", "ballot", "election"],
+    "voter registration": ["register to vote", "voting registration", "voter card"],
+    "polling place": ["polling location", "where to vote", "voting location", "poll site"],
+    "absentee": ["mail-in ballot", "absentee ballot", "vote by mail"],
+
+    # Courts and Legal
+    "traffic ticket": ["citation", "moving violation", "speeding ticket", "fine"],
+    "court fee": ["court cost", "filing fee", "court charge"],
+    "fine": ["penalty", "court fee", "traffic ticket", "citation fee"],
+    "lawsuit": ["civil case", "legal action", "court case"],
+
+    # Utilities and Infrastructure
+    "water bill": ["utility bill", "water payment", "water service"],
+    "sewer": ["sanitation", "wastewater", "sewage"],
+    "pothole": ["road damage", "road repair", "street repair", "pavement issue"],
+    "streetlight": ["street light", "light outage", "broken light"],
+
+    # Emergency and Safety
+    "emergency": ["911", "urgent", "crisis", "hazard"],
+    "non-emergency": ["non emergency", "sheriff", "noise complaint", "general issue"],
+    "animal control": ["stray animal", "dog bite", "animal complaint", "animal shelter"],
+
+    # Parks and Recreation
+    "parks": ["recreation", "parks department", "park hours", "park facilities"],
+    "program": ["class", "activity", "registration", "sign up"],
+}
+
+def expand_government_query(query: str) -> str:
+    """
+    Expand query with government synonyms before BM25 tokenization.
+
+    Strategy: add synonyms as additional terms (not replace original).
+    BM25 gives full weight to original terms and additional weight to synonyms.
+
+    Example: "when is my trash day" → "when is my trash day waste collection garbage refuse"
+    """
+    query_lower = query.lower()
+    expanded_terms = [query]
+
+    for term, synonyms in GOVERNMENT_SYNONYMS.items():
+        if term in query_lower:
+            # Add 1-2 most relevant synonyms (don't flood the query)
+            expanded_terms.extend(synonyms[:2])
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_terms = []
+    for term in " ".join(expanded_terms).split():
+        if term not in seen:
+            seen.add(term)
+            unique_terms.append(term)
+
+    return " ".join(unique_terms)
+```
+
+**Synonym coverage (count: 33 base terms + expansion):**
+
+| Category | Terms Covered |
+|----------|--------------|
+| Waste/Trash | trash, garbage, recycling, bulk trash |
+| Tax/Payments | property tax, personal property tax, tax bill, owe, pay, delinquent, rebate, exemption |
+| Benefits | SNAP, food stamps, benefits, welfare |
+| Permits/Licensing | permit, license, zoning |
+| Elections | vote, voter registration, polling place, absentee |
+| Courts | traffic ticket, court fee, fine, lawsuit |
+| Utilities/Infrastructure | water bill, sewer, pothole, streetlight |
+| Emergency/Safety | emergency, non-emergency, animal control |
+| Parks | parks, program |
+
+**BM25 parameters for FAQ search:**
+- `k1=1.5` — standard for document retrieval (term saturation)
+- `b=0.75` — standard length normalization
+- For short FAQ answers (50-100 words): consider `b=0.5` to reduce length bias against short answers
+
+**Confidence:** MEDIUM-HIGH — synonym pairs derived from domain knowledge of US municipal government terminology and confirmed by Jackson County website structure. GXA/Granicus specifically mentions "trash pickup schedule" and "permit" as primary use cases. SNAP/food stamps mapping is verified from official SNAP program name documentation.
 
 ---
 
 ## Common Pitfalls
 
-### Pitfall 1: Memory OOM on ECS 512MB Task (HIGH RISK — BLOCKS PLAN 03)
+### Pitfall 1: Redis Failure Propagating as Voice Turn Error
+**What goes wrong:** Redis connection error raises exception, propagates through `retrieve()`, voice turn returns error to user.
+**Why it happens:** Default redis-py throws `redis.exceptions.ConnectionError` on timeout or connection failure.
+**How to avoid:** Wrap ALL Redis operations in try/except that catches `Exception` (not just `redis.exceptions.ConnectionError`) and falls through to BM25. Log the error at WARNING level.
+**Warning signs:** User-facing errors that mention "connection refused" or "timeout." CloudWatch FallbackToDirectBM25 counter rising unexpectedly.
 
-**What goes wrong:** The ECS task OOM-kills when Python imports `sentence_transformers` and loads all-MiniLM-L6-v2.
+### Pitfall 2: BM25 Index Not Built Before First Request
+**What goes wrong:** First voice turn tries to call `BM25Okapi.get_scores()` but `bm25` is None or corpus is empty. Returns no results. LLM has no context.
+**Why it happens:** DynamoDB scan and BM25 build happen synchronously in `__init__`. If DynamoDB is unavailable at startup, build fails silently with empty corpus.
+**How to avoid:** Check corpus length after build. If empty, raise at startup (not silently). Use `DescribeTable` before Scan to verify table exists.
+**Warning signs:** `BM25TopScore` metric stays at 0.0 for all turns. Retrieved chunks list is empty on all turns.
 
-**Why it happens:** Model weights = ~91MB (22.7M params × 4 bytes). PyTorch framework overhead = ~100-150MB. Python + FastAPI + existing orchestrator = ~60MB. Redis container = ~15MB. Total: ~266-316MB for model alone, leaving <196MB for the OS, tmpfs, and working memory buffers.
+### Pitfall 3: DynamoDB Scan Without Paginator Returns Truncated Results
+**What goes wrong:** `dynamo.scan()` returns at most 1MB per call. For 50 FAQs (~110KB), this works fine today. At 200+ FAQs (~440KB), results are silently truncated. BM25 index misses chunks.
+**Why it happens:** DynamoDB returns `LastEvaluatedKey` when results are paginated. Without paginator, you see `LastEvaluatedKey` in response but don't fetch next page.
+**How to avoid:** Use `boto3.get_paginator("scan")` from day one. Zero extra cost, handles any scale.
+**Warning signs:** FAQ count in BM25 index doesn't match DynamoDB item count.
 
-**The real-world evidence:** ECS search results confirm the OOM killer terminates containers that exceed hard memory limits. For Python ML models, resident set size consistently exceeds declared model file size by 2-3x due to PyTorch graph allocation.
+### Pitfall 4: Embedding Stored as JSON Float List (Not Binary)
+**What goes wrong:** 384 float values stored as a JSON string: `[0.234, -0.145, ...]`. Takes ~5KB per embedding instead of 1.5KB. Parsing is slower.
+**Why it happens:** Easier to write `json.dumps(embedding.tolist())` than `embedding.tobytes()`.
+**How to avoid:** Always use `numpy.ndarray.tobytes()` and DynamoDB `{"B": bytes_value}`. boto3 handles base64 wire encoding transparently.
+**Warning signs:** DynamoDB items showing ~5-6KB size instead of ~2.2KB.
 
-**How to avoid:** Increase ECS task memory to **1024MB minimum** before Plan 03 begins. This is a blocking prerequisite for ECS deployment.
+### Pitfall 5: ECS Task OOM-Killed During Model Warm-Up
+**What goes wrong:** ECS task starts, loads sentence-transformers model, memory spikes to 450MB, ECS kills task at 512MB hard limit. Service restart loop. Logs show `OOMKilled`.
+**Why it happens:** PyTorch allocates working memory for first inference call. Cold start allocation exceeds 512MB briefly even if steady-state is ~300MB.
+**How to avoid:** Run at 1024MB. This is already decided in CONTEXT.md.
+**Warning signs:** ECS task cycling every few minutes. CloudWatch showing tasks going from Running to Stopped repeatedly.
 
-**Terraform/console change required:**
-```hcl
-# infra/terraform/ecs.tf
-resource "aws_ecs_task_definition" "voice_bot" {
-  family                = "voice-bot-mvp"
-  cpu                   = "512"      # Increase from 256 for embedding throughput
-  memory                = "1024"     # REQUIRED — was 512, OOM risk with sentence-transformers
-```
+### Pitfall 6: Stale BM25 Index After FAQ Updates
+**What goes wrong:** New FAQs are written to DynamoDB but BM25 index in memory is not rebuilt. Queries don't hit new FAQ content.
+**Why it happens:** BM25 index is built once at startup from DynamoDB Scan. Monthly updates to DynamoDB don't trigger index rebuild.
+**How to avoid:** Add an index rebuild endpoint (`POST /admin/rebuild-index`) or trigger rebuild on ECS service redeployment (which runs `__init__` again).
+**Warning signs:** New FAQ chunks in DynamoDB but no retrieval hits for new topic areas.
 
-**Warning signs:** Task stops with `exit code 137` in ECS events (OOM kill). Task CPU usage suddenly drops to 0% followed by task restart.
-
----
-
-### Pitfall 2: BM25 Returns Empty Results for Semantic-Style Queries
-
-**What goes wrong:** User asks "how much will I owe for my house?" — BM25 misses this because it contains no keywords matching "property tax" or "payment" in the FAQ text.
-
-**Why it happens:** BM25 is a keyword matcher. It cannot handle semantic paraphrasing. Government FAQ queries from voice users ("when is my bill due?") often don't match the terminology in official documents ("payment deadline for tax assessments").
-
-**How to avoid:** This is a known limitation of BM25-only retrieval for voice. For Phase 1 MVP with 50 FAQs, accept this limitation. The system prompt instructs Claude to handle vague queries gracefully. Phase 2 upgrade path (CrossEncoder reranking) is already documented in CONTEXT.md deferred section.
-
-**Mitigation in Phase 1:** Include query expansion in the BM25 search: tokenize the query AND add common synonym expansions for government terms (e.g., "owe" → ["owe", "pay", "payment", "bill", "tax"]).
-
-**Research finding:** For corpora <1000 documents with curated FAQ-style content, BM25 achieves 70-80% recall@5 on government queries. This is acceptable for Phase 1 MVP. Research confirms hybrid BM25+semantic achieves 85-90% recall — the CrossEncoder upgrade path in Phase 2 closes this gap.
-
-**Warning signs:** Users report "the bot didn't know that" for questions that ARE in the FAQ but phrased differently. Monitor via CloudWatch: track sessions where `knowledge.chunks` length returned to LLM is 0 (empty retrieval).
-
----
-
-### Pitfall 3: DynamoDB Reserved Word "text" in Queries
-
-**What goes wrong:** `dynamodb.scan(ProjectionExpression="text, source_doc, department")` raises `ClientError: text is a reserved word`.
-
-**Why it happens:** `text` is a DynamoDB reserved keyword. All DynamoDB expressions that reference reserved words must use `ExpressionAttributeNames` substitution.
-
-**How to avoid:**
-```python
-# WRONG:
-response = dynamo.scan(TableName=table, ProjectionExpression="text, source_doc")
-
-# CORRECT:
-response = dynamo.scan(
-    TableName=table,
-    ProjectionExpression="#txt, source_doc, department, chunk_id",
-    ExpressionAttributeNames={"#txt": "text"},
-)
-```
-
-**Warning signs:** `ClientError: An error occurred (ValidationException) when calling the Scan operation: Value provided in ExpressionAttributeNames is not used in expressions` OR `reserved word` error message from DynamoDB.
-
----
-
-### Pitfall 4: BM25 Index Not Built Before First Voice Turn
-
-**What goes wrong:** First voice turn after container startup fails because `self._bm25 is None` — corpus hasn't loaded yet.
-
-**Why it happens:** Corpus loading is async (DynamoDB scan). If the FastAPI app accepts requests before `load_corpus()` completes, `retrieve()` will fail with `AttributeError: 'NoneType' object has no attribute 'get_scores'`.
-
-**How to avoid:** Use FastAPI lifespan events to load corpus at startup, before any requests are served:
-```python
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: load corpus before accepting requests
-    knowledge = app.state.knowledge_adapter
-    if hasattr(knowledge, 'load_corpus'):
-        await knowledge.load_corpus()
-    yield
-    # Shutdown (optional cleanup)
-
-app = FastAPI(lifespan=lifespan)
-```
-
-**Warning signs:** First requests after container start return `HTTP 500` with `NoneType object has no attribute 'get_scores'` in logs.
-
----
-
-### Pitfall 5: sentence-transformers Model Downloaded at Container Start
-
-**What goes wrong:** `SentenceTransformer("all-MiniLM-L6-v2")` triggers a Hugging Face Hub download if the model is not cached. In ECS, this adds 10-30s cold start latency on every new task.
-
-**Why it happens:** sentence-transformers downloads models from Hugging Face by default on first use. ECS Fargate containers start fresh each time.
-
-**How to avoid:** Download and bake the model into the Docker image at build time:
-```dockerfile
-# In backend/Dockerfile
-RUN pip install sentence-transformers && \
-    python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
-# This caches the model in the image — no network call at runtime
-```
-
-**Warning signs:** ECS task health checks fail on first deployment due to timeout. CloudWatch shows ASR stage succeeding but embedding stage timing spikes to 15,000ms on first warm-up.
-
----
-
-### Pitfall 6: Redis Connection Failure Crashing the Voice Pipeline
-
-**What goes wrong:** Redis is unavailable (container not started, network issue). `retrieve()` raises `ConnectionError`, crashing the voice turn.
-
-**How to avoid:** Wrap Redis calls in try/except. Redis is a cache, not critical path. A cache miss is acceptable:
-```python
-try:
-    if self._redis:
-        cached = self._redis.get(cache_key)
-        if cached:
-            return ...
-except Exception:
-    pass  # Redis unavailable — fall through to BM25 search
-
-# BM25 search runs regardless of Redis state
-```
-
----
-
-### Pitfall 7: BM25 Latency Estimate of "~0ms" is Misleading
-
-**What goes wrong:** CONTEXT.md states BM25 adds ~0ms. In reality, BM25 over 500 chunks takes 0.5-2ms per query, not 0ms. The bigger cost is corpus loading from DynamoDB at startup (~100-500ms for a full table scan of 500 items).
-
-**Why it matters:** The 1.5s SLO budget should account for real BM25 latency. The startup corpus load happens once and is acceptable. Per-query BM25 latency of ~1ms is well within budget.
-
-**Actual latency breakdown (revised estimates for ECS, CPU-only):**
-- ASR (AWS Transcribe): ~200ms
-- RAG (Redis hit: 1ms; BM25 if miss: 1-2ms; embedding inference if called: 5-10ms): ~5ms typical
-- LLM (Claude 3.5 Sonnet via Bedrock): ~700-900ms
-- TTS (AWS Polly): ~300-400ms
-- Total p50 estimate: **~1.2s** — within 1.5s SLO
-- Total p95 estimate: **~1.5-1.8s** — borderline; LLM latency variance is the main risk
-
-**SLO risk:** The 1.5s p95 SLO is **tight but achievable** with warm cache. Without cache (first query for each unique question), the full BM25 path adds <5ms total — still within budget. LLM latency is the dominant variable.
+### Pitfall 7: 01-02-PLAN.md References Stale pgvector Architecture
+**What goes wrong:** Plan 02 implements Aurora PostgreSQL + pgvector. This is no longer the correct architecture per CONTEXT.md (DynamoDB + BM25 + Redis).
+**How to avoid:** 01-02-PLAN.md MUST be rewritten before execution. The planner should generate a new Plan 02 targeting DynamoDB Scan → BM25 index build → Redis cache pattern.
+**Warning signs:** Executor attempts to provision Aurora Serverless v2 database.
 
 ---
 
 ## Code Examples
 
-### BM25 Unit Test Pattern
+### BM25 Redis Retriever — Full Working Example
 
 ```python
-# tests/backend/test_knowledge_dynamo.py
-import asyncio
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+# Source: rank_bm25 PyPI docs + redis-py official docs + pattern verified in research
+import hashlib
+import json
+import time
+from rank_bm25 import BM25Okapi
+import redis
 
-def test_bm25_ranking_returns_correct_faq():
-    """BM25 returns the most keyword-relevant FAQ chunk for a query."""
-    from backend.app.services.knowledge import DynamoBM25KnowledgeAdapter
-    from rank_bm25 import BM25Okapi
-
-    # Inject corpus directly (bypass DynamoDB)
-    adapter = DynamoBM25KnowledgeAdapter(
-        dynamo_client=MagicMock(),
-        table_name="test-table",
-        redis_client=None,
-    )
-    adapter._corpus = [
-        {"text": "Property tax payments are due April 1st.", "source_doc": "tax-guide.pdf", "department": "finance", "chunk_id": "tax:0"},
-        {"text": "Building permits require a $150 application fee.", "source_doc": "permits.pdf", "department": "planning", "chunk_id": "permits:0"},
-        {"text": "Voter registration deadline is 30 days before election.", "source_doc": "elections.pdf", "department": "elections", "chunk_id": "elections:0"},
-    ]
-    tokenized = [doc["text"].lower().split() for doc in adapter._corpus]
-    adapter._bm25 = BM25Okapi(tokenized, k1=1.5, b=0.75)
-
-    result = asyncio.run(adapter.retrieve("property tax payment", top_k=1))
-
-    assert len(result.chunks) == 1
-    assert "Property tax" in result.chunks[0]
-    assert result.sources[0] == "tax-guide.pdf"
-    assert result.search_latency_ms >= 0.0
-```
-
-### DynamoDB Scan Mock Pattern
-
-```python
-# tests/backend/test_knowledge_dynamo.py
-def test_load_corpus_from_dynamodb():
-    """load_corpus() populates self._corpus from DynamoDB scan response."""
-    import asyncio
-    from unittest.mock import MagicMock
-    from backend.app.services.knowledge import DynamoBM25KnowledgeAdapter
-
-    mock_dynamo = MagicMock()
-    mock_dynamo.scan.return_value = {
-        "Items": [
-            {
-                "chunk_id": {"S": "faq.pdf:0"},
-                "text": {"S": "Property tax due April 1st."},
-                "source_doc": {"S": "faq.pdf"},
-                "department": {"S": "finance"},
-            }
-        ]
-    }
-    adapter = DynamoBM25KnowledgeAdapter(mock_dynamo, "test-table")
-    asyncio.run(adapter.load_corpus())
-
-    assert len(adapter._corpus) == 1
-    assert adapter._bm25 is not None
-    mock_dynamo.scan.assert_called_once()
-```
-
-### pdfplumber Chunk Test Pattern (no real PDF needed)
-
-```python
-# tests/backend/test_ingest.py
-import tempfile
-from pathlib import Path
-
-def test_chunk_extraction_word_count_bounds():
-    """Chunks fall within 200-450 words (approximating 300-500 tokens)."""
-    from knowledge.pipeline.ingest import extract_chunks_from_pdf
-
-    # Create a minimal valid PDF using pdfplumber's test pattern or fpdf2
-    # For unit tests: mock pdfplumber.open instead
-    from unittest.mock import patch, MagicMock
-
-    mock_page = MagicMock()
-    mock_page.extract_text.return_value = " ".join(["word"] * 1000)
-
-    with patch("pdfplumber.open") as mock_open:
-        mock_open.return_value.__enter__ = lambda s: s
-        mock_open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_open.return_value.pages = [mock_page]
-        chunks = extract_chunks_from_pdf("test.pdf")
-
-    for chunk in chunks:
-        word_count = len(chunk["text"].split())
-        assert 150 <= word_count <= 500, f"Chunk word count {word_count} out of bounds"
-```
-
-### Redis Cache Integration Test
-
-```python
-# tests/backend/test_knowledge_dynamo.py
-def test_redis_cache_hit_skips_bm25():
-    """Redis cache hit returns immediately without BM25 ranking."""
-    import asyncio, json
-    from unittest.mock import MagicMock
-    from rank_bm25 import BM25Okapi
-    from backend.app.services.knowledge import DynamoBM25KnowledgeAdapter
-
-    mock_redis = MagicMock()
-    cached_data = {"chunks": ["Cached FAQ answer."], "sources": ["cached.pdf"]}
-    mock_redis.get.return_value = json.dumps(cached_data).encode()
-
-    adapter = DynamoBM25KnowledgeAdapter(
-        dynamo_client=MagicMock(),
-        table_name="test",
-        redis_client=mock_redis,
-    )
-    adapter._corpus = []
-    adapter._bm25 = BM25Okapi([[]], k1=1.5, b=0.75)
-
-    result = asyncio.run(adapter.retrieve("property tax", top_k=3))
-
-    assert result.chunks == ["Cached FAQ answer."]
-    assert result.sources == ["cached.pdf"]
-    mock_redis.get.assert_called_once()
-```
-
-### E2E Pipeline Timing Test
-
-```python
-# tests/e2e/test_phase1_roundtrip.py
-import asyncio
-import pytest
-from backend.app.orchestrator.runtime import build_pipeline
-
-def test_all_stage_timings_strictly_positive():
-    """All four pipeline stage timings must be > 0 after a voice turn.
-    Uses > 0.0 not >= 0.0 to catch silent instrumentation failures.
+class DynamoKnowledgeAdapter:
     """
-    pipeline = build_pipeline()
-    result = asyncio.run(pipeline.run_roundtrip(b"fake-audio-bytes"))
+    Production KnowledgeAdapter using DynamoDB (corpus storage) + BM25 (retrieval) + Redis (cache).
+    Fallback: Redis unavailable → BM25 directly. Never fail voice turns due to cache.
+    """
 
-    assert result.asr_ms > 0.0, f"asr_ms={result.asr_ms}"
-    assert result.rag_ms > 0.0, f"rag_ms={result.rag_ms}"
-    assert result.llm_ms > 0.0, f"llm_ms={result.llm_ms}"
-    assert result.tts_ms > 0.0, f"tts_ms={result.tts_ms}"
+    def __init__(
+        self,
+        dynamo_client,
+        table_name: str,
+        redis_url: str | None = "redis://localhost:6379",
+        redis_ttl: int = 3600,
+        region: str = "ap-south-1",
+    ):
+        # Load corpus and build BM25 index at startup
+        self._corpus, self._bm25 = self._build_index(dynamo_client, table_name)
 
-    total = result.asr_ms + result.rag_ms + result.llm_ms + result.tts_ms
-    assert total > 0.0
+        # Redis connection — None if URL not provided or connection fails
+        self._redis = None
+        self._redis_ttl = redis_ttl
+        if redis_url:
+            try:
+                pool = redis.ConnectionPool.from_url(redis_url, max_connections=10)
+                self._redis = redis.Redis(connection_pool=pool, socket_connect_timeout=1, socket_timeout=0.5)
+                self._redis.ping()  # Verify connectivity at startup
+            except Exception as e:
+                import logging
+                logging.warning(f"Redis unavailable at startup: {e}. Using BM25 direct.")
+                self._redis = None
+
+    def _build_index(self, dynamo_client, table_name: str) -> tuple[list[dict], BM25Okapi]:
+        paginator = dynamo_client.get_paginator("scan")
+        corpus = []
+        for page in paginator.paginate(TableName=table_name):
+            for item in page["Items"]:
+                corpus.append({
+                    "text": item["text"]["S"],
+                    "source_doc": item["source_doc"]["S"],
+                    "department": item["department"]["S"],
+                    "chunk_id": item["chunk_id"]["S"],
+                })
+
+        if not corpus:
+            raise ValueError(f"DynamoDB table {table_name} returned zero items. Cannot build BM25 index.")
+
+        tokenized = [doc["text"].lower().split() for doc in corpus]
+        bm25 = BM25Okapi(tokenized, k1=1.5, b=0.75)
+        return corpus, bm25
+
+    async def retrieve(self, query: str, top_k: int = 5) -> "KnowledgeResult":
+        import asyncio
+        t0 = time.monotonic()
+        results = await asyncio.to_thread(self._retrieve_sync, query, top_k)
+        latency_ms = (time.monotonic() - t0) * 1000
+
+        from backend.app.services.knowledge import KnowledgeResult
+        return KnowledgeResult(
+            chunks=[r["text"] for r in results],
+            sources=[r["source_doc"] for r in results],
+            search_latency_ms=latency_ms,
+        )
+
+    def _retrieve_sync(self, query: str, top_k: int) -> list[dict]:
+        # Cache key
+        cache_key = f"bm25:v1:{hashlib.sha256(query.lower().encode()).hexdigest()[:16]}"
+
+        # Try Redis
+        if self._redis:
+            try:
+                cached = self._redis.get(cache_key)
+                if cached:
+                    return json.loads(cached)
+            except Exception:
+                pass
+
+        # BM25 with query expansion
+        from backend.app.services.bm25_index import expand_government_query
+        expanded = expand_government_query(query)
+        scores = self._bm25.get_scores(expanded.lower().split())
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        results = [
+            {"text": self._corpus[i]["text"], "source_doc": self._corpus[i]["source_doc"],
+             "department": self._corpus[i]["department"], "score": float(scores[i])}
+            for i in top_indices if scores[i] > 0.01
+        ]
+
+        # Cache results
+        if self._redis and results:
+            try:
+                self._redis.setex(cache_key, self._redis_ttl, json.dumps(results))
+            except Exception:
+                pass
+
+        return results
+```
+
+### DynamoDB Conversation Turn Write
+
+```python
+# Source: AWS DynamoDB official docs + conversation session design
+import uuid
+from datetime import datetime, timezone
+
+def write_conversation_turn(dynamo, session_id, turn_num, user_input, response_text, pipeline_result, rag_chunk_ids, table_name):
+    now = datetime.now(timezone.utc)
+    total_ms = pipeline_result.asr_ms + pipeline_result.rag_ms + pipeline_result.llm_ms + pipeline_result.tts_ms
+
+    item = {
+        "session_id":  {"S": session_id},
+        "turn_number": {"N": str(turn_num)},
+        "user_input":  {"S": user_input[:2000]},  # Guard against very long inputs
+        "assistant_response": {"S": response_text[:4000]},
+        "rag_chunks_used": ({"SS": rag_chunk_ids} if rag_chunk_ids else {"NULL": True}),
+        "asr_ms":  {"N": str(round(pipeline_result.asr_ms, 2))},
+        "rag_ms":  {"N": str(round(pipeline_result.rag_ms, 2))},
+        "llm_ms":  {"N": str(round(pipeline_result.llm_ms, 2))},
+        "tts_ms":  {"N": str(round(pipeline_result.tts_ms, 2))},
+        "total_ms": {"N": str(round(total_ms, 2))},
+        "slo_met":  {"BOOL": total_ms < 1500},
+        "timestamp": {"S": now.isoformat()},
+        "ttl":      {"N": str(int(now.timestamp()) + 90 * 86400)},
+    }
+    dynamo.put_item(TableName=table_name, Item=item)
 ```
 
 ---
 
-## Testability Summary by Plan
+## API Architecture — Pluggable Design
 
-| Plan | Unit Tests | Integration Tests | E2E Tests | Manual Checks |
-|------|-----------|-------------------|-----------|---------------|
-| 01: KnowledgeAdapter + Pipeline Wiring | test_knowledge_adapter.py, test_llm_system_prompt.py, test_pipeline_rag.py | build_pipeline() smoke | — | — |
-| 02: BM25 + DynamoDB + Redis | test_knowledge_dynamo.py, test_ingest.py | Docker Compose redis ping | — | DynamoDB table exists in AWS |
-| 03: ECS Deployment + Integration | — | — | test_aws_dev_deploy_smoke.py (modified) | ECS task health, CloudWatch metrics |
-| 04: Latency + Monitoring | test_latency_probes.py | test_metrics_endpoint (FastAPI TestClient) | test_phase1_roundtrip.py | CloudWatch namespace voicebot/latency visible |
+### Is This API-Driven and Usable Anywhere?
 
-**Full suite command (local, no AWS):**
-```bash
-cd C:/Coding/Enterprise-AI-Voice-Bot && \
-  USE_AWS_MOCKS=true python -m pytest tests/backend/ tests/e2e/test_phase1_roundtrip.py -v
+**YES.** The Phase 0 + Phase 1 architecture is inherently API-driven. Three endpoints serve all client types:
+
+| Endpoint | Protocol | Client Use Case |
+|----------|----------|-----------------|
+| `ws://host/ws` | WebSocket | Browser voice mic, telephony WebSocket bridge |
+| `POST /chat` | HTTP REST | Mobile apps, SMS gateways, Slack bots, CLI tools |
+| `GET /health` | HTTP REST | Load balancers, monitoring, uptime checks |
+| `GET /metrics` | HTTP REST | Dashboards, TPM monitoring, SLO tracking |
+
+**How to add a new client:** No code changes to the core service. New clients connect to the existing endpoints. Example integrations:
+
+1. **Twilio Voice (telephony):** Twilio WebSocket bridges to `/ws` endpoint. Existing code handles it.
+2. **Slack bot:** Slack events webhook → Python Lambda → POST `/chat` → return response to Slack.
+3. **SMS (Twilio SMS):** SMS webhook → Lambda → POST `/chat` → reply via Twilio SMS API.
+4. **Internal admin dashboard:** React app POSTs to `/chat`, renders conversation history.
+
+**How to swap adapters (providers) without code changes:**
+
+```python
+# backend/app/orchestrator/runtime.py
+
+def build_pipeline() -> VoicePipeline:
+    asr_provider = os.getenv("ASR_PROVIDER", "aws")      # "aws" | "deepgram" | "mock"
+    llm_provider = os.getenv("LLM_PROVIDER", "bedrock")  # "bedrock" | "openai" | "mock"
+    tts_provider = os.getenv("TTS_PROVIDER", "polly")    # "polly" | "elevenlabs" | "mock"
+
+    asr = {
+        "aws": AwsTranscribeAdapter,
+        "mock": MockASRAdapter,
+        # Future: "deepgram": DeepgramAdapter,
+    }[asr_provider]()
+
+    llm = {
+        "bedrock": AwsBedrockAdapter,
+        "mock": MockLLMAdapter,
+        # Future: "openai": OpenAIAdapter,
+    }[llm_provider](clients=build_aws_clients() if llm_provider == "bedrock" else None)
+
+    knowledge = DynamoKnowledgeAdapter(
+        dynamo_client=boto3.client("dynamodb", region_name="ap-south-1"),
+        table_name=os.getenv("DYNAMO_TABLE_NAME", "voicebot-faq-knowledge"),
+    ) if not _use_mocks() else MockKnowledgeAdapter()
+
+    return VoicePipeline(asr=asr, llm=llm, tts=tts, knowledge=knowledge)
 ```
+
+**Confidence:** HIGH — pattern verified against existing Phase 0 runtime.py implementation and FastAPI lifespan documentation.
 
 ---
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| Aurora PostgreSQL + pgvector for FAQ search | DynamoDB (text store) + BM25 (in-memory ranking) | Locked 2026-03-10 | $43-80/mo saved; VPC complexity eliminated; BM25 sufficient for 50-doc corpus |
-| Bedrock Titan Embeddings for cloud RAG | all-MiniLM-L6-v2 everywhere (single model) | Locked 2026-03-10 | Eliminates embedding dimension mismatch risk; ~$0.05/batch vs $0.005/batch |
-| OpenSearch Serverless for vector search | No vector search (BM25 only for Phase 1) | Locked 2026-03-10 | $174/mo saved; accepted tradeoff: semantic paraphrasing not handled (Phase 2 CrossEncoder upgrade path) |
-| Separate embedding service in ECS | Imported as module in same ECS task | Locked 2026-03-10 | Eliminates inter-service network latency; saves ECS task overhead |
-| ASR → LLM (no RAG) | ASR → RAG (BM25 corpus lookup) → LLM | Phase 1 new | Grounds answers in official documents; source attribution in every response |
+| Old Approach | Current Approach | Impact |
+|--------------|------------------|--------|
+| Aurora PostgreSQL + pgvector | DynamoDB + BM25 + Redis | ~$43-80/mo savings; simpler ops |
+| Bedrock Titan V2 embeddings (1536-dim) | all-MiniLM-L6-v2 sentence-transformers (384-dim) | Dimension consistency; ~75% cost reduction |
+| EC2 intermediate tier | Local Docker → ECS directly | Eliminated ops complexity |
+| Per-request embedding at query time | Pre-computed embeddings stored in DynamoDB | ~5ms savings per query |
+| Single CloudWatch namespace | `voicebot/latency` + `voicebot/rag` + `voicebot/conversations` | Per-dimension alerting and TPM dashboards |
+| No conversation tracking | DynamoDB Table 2 with TTL | Enables cost-per-session, completion rate, follow-up rate metrics |
 
-**Deprecated in this project:**
-- Aurora PostgreSQL + pgvector: Dropped 2026-03-10 (overkill for 50 FAQs, $43-80/mo)
-- OpenSearch Serverless: Dropped 2026-03-10 ($174/mo minimum, no free tier)
-- Bedrock Titan Embeddings for query embedding: Dropped 2026-03-10 (dimension mismatch risk, cost)
+**Deprecated/outdated in this plan:**
+- Aurora PostgreSQL Serverless v2: Removed. Replaced by DynamoDB + BM25.
+- `pg_schema.sql` (vector(384)): No longer needed. Archive if written in 01-02-PLAN.md.
+- `AwsKnowledgeAdapter` with psycopg2: Replace with `DynamoKnowledgeAdapter` using boto3.
+- EC2 deployment tier documentation: Remove from CONTEXT.md and ROADMAP.md.
 
 ---
 
 ## Open Questions
 
-1. **ECS Memory — 512MB or 1024MB?**
-   - What we know: all-MiniLM-L6-v2 model file ~91MB; PyTorch overhead ~100-150MB; existing orchestrator ~59MB; Redis ~15MB. Total estimated: ~315MB minimum.
-   - What's unclear: Whether 512MB leaves enough headroom for concurrent requests (each adds ~20-50MB for batch processing buffers).
-   - Recommendation: Upgrade to **1024MB** as a blocking prerequisite for Plan 03. Cost impact: $8.96/mo (512MB) → ~$15.50/mo (1024MB Fargate in ap-south-1). Accept this.
+1. **Conversation tracking in Phase 1 vs Phase 2**
+   - What we know: DynamoDB Table 2 schema is ready; write_conversation_turn is a 10-line function
+   - What's unclear: Does Plan 03 (ECS Deployment) include conversation write? Plan 04 (Monitoring) needs it for metrics.
+   - Recommendation: Add ConversationAdapter to Plan 03 as a lightweight task (1 hour implementation). Don't defer to Phase 2 — metrics dashboard in Plan 04 depends on it.
 
-2. **BM25 on Paraphrased Government Queries**
-   - What we know: BM25 achieves ~70-80% recall@5 for FAQ-style content; fails on paraphrased queries where no keywords match.
-   - What's unclear: Whether Jackson County FAQ phrasing closely matches resident question phrasing (government documents often use formal terminology).
-   - Recommendation: Accept 70-80% recall for Phase 1. Log queries that return empty BM25 results to identify gaps. Plan 2 CrossEncoder upgrade path is documented.
+2. **Redis in ECS: sidecar container vs ElastiCache**
+   - What we know: Running Redis as a sidecar container in the same ECS task is viable for MVP. ElastiCache adds ~$13/mo.
+   - What's unclear: ECS Fargate does not support multiple containers in the same task easily. Using a second container in the same task definition is the correct pattern, but adds memory overhead (~30MB for Redis).
+   - Recommendation: Use Redis sidecar in same task definition for Phase 1. Move to ElastiCache in Phase 2 if Redis restart during task rolling update is observed.
 
-3. **DynamoDB Scan at Startup — Pagination**
-   - What we know: DynamoDB Scan returns max 1MB per page. 500 chunks × avg 300 words × 5 bytes = ~750KB — likely fits in one scan page.
-   - What's unclear: If FAQ corpus grows beyond 200 items, pagination is needed.
-   - Recommendation: Implement paginator from the start using boto3 paginator pattern. Single-page assumption is fragile.
+3. **BM25 index rebuild mechanism**
+   - What we know: Monthly FAQ updates require BM25 index rebuild. ECS rolling deployment triggers `__init__` which rebuilds from DynamoDB.
+   - What's unclear: Is a rolling deployment triggered by FAQ-only updates (no code change)?
+   - Recommendation: Add an admin endpoint `POST /admin/rebuild-index` that rebuilds in-memory without redeployment. Protected by a simple admin token. Adds 30 lines of code.
+
+4. **SNAP/benefits synonyms completeness**
+   - What we know: Jackson County is in Missouri; county-level benefits administration may not include SNAP directly (often state-administered). Check jacksongov.org for whether the county FAQ includes benefits info.
+   - What's unclear: Which Human Services topics Jackson County covers vs defers to state.
+   - Recommendation: Include SNAP synonyms in the dictionary but validate against actual FAQ corpus before launch.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- HuggingFace Model Card: `sentence-transformers/all-MiniLM-L6-v2` — 22.7M params, 384-dim, 128-token sequence limit
-- HuggingFace Discussions #39: Memory requirements ~43MB (weights alone); PyTorch overhead adds ~100-150MB
-- rank-bm25 PyPI: `pip install rank-bm25`, BM25Okapi with k1/b parameters
-- bm25s HuggingFace blog: BM25S as faster alternative for larger corpora
-- AWS DynamoDB docs: `text` is a reserved word; use ExpressionAttributeNames
-- AWS ECS docs: OOM kill at memory hard limit (exit code 137); 256 CPU + 512MB is minimum valid combo
+- AWS DynamoDB Official Docs — Binary data type, item size limits (400KB), paginator pattern
+  - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html
+- AWS ECS Task Definition Parameters — Valid Fargate CPU/memory combinations
+  - https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html
+- AWS IAM DynamoDB Permissions Reference — Permission names verified
+  - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/api-permissions-reference.html
+- rank_bm25 PyPI — BM25Okapi constructor params (k1, b)
+  - https://pypi.org/project/rank-bm25/
+- redis-py PyPI — ConnectionPool, socket_timeout, exception handling
+  - https://pypi.org/project/redis/
+- HuggingFace all-MiniLM-L6-v2 — Model size (22M params, 43MB float16), memory requirements
+  - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/discussions/22
 
 ### Secondary (MEDIUM confidence)
-- Research (February 2025): Pure semantic retrieval achieves 48.7% recall@1; hybrid BM25+dense achieves 53.4% on open-domain QA
-- Research (June 2025): BM25 and MiniLM achieve comparable accuracy on medical document classification; BM25 slightly faster
-- WebSearch: Sentence Transformers containers average 3-minute cold start for larger models; all-MiniLM-L6-v2 is much smaller (~22MB vs 400MB+ for larger models)
-- AWS Project Lakechain (awslabs): Cold start optimization by caching models in image layers
-- WebSearch: DynamoDB Binary type for embeddings is more space-efficient than String type
-- Meilisearch blog: Hybrid search (BM25 + vector) typical improvement of 10-15% MRR@5 over BM25 alone
+- Granicus GXA — Government chatbot use cases, top intents (FAQ, permits, waste, elections)
+  - https://granicus.com/blog/smarter-government-starts-here-use-cases-for-the-government-experience-agent/
+  - https://granicus.com/blog/how-local-governments-can-use-ai-powered-chatbots/
+- AWS Database Blog — DynamoDB data models for generative AI chatbots (session schema patterns)
+  - https://aws.amazon.com/blogs/database/amazon-dynamodb-data-models-for-generative-ai-chatbots/
+- Evidently AI — RAG evaluation metrics, groundedness score, proxy signals for hallucination
+  - https://www.evidentlyai.com/llm-guide/rag-evaluation
+- RAGAS Framework — Faithfulness and groundedness metrics for RAG without ground truth
+  - (Referenced via Evidently AI and EMNLP 2024 findings paper)
+- Jackson County Missouri — Property tax, collection, assessment FAQ structure
+  - https://www.jacksongov.org/Government/Departments/Assessment/FAQs
 
-### Tertiary (LOW confidence — verify before implementing)
-- Latency estimates (ASR ~200ms, LLM ~800ms, TTS ~400ms): From CONTEXT.md locked decisions; not independently benchmarked in this research session. Verify against real Phase 0 metrics in CloudWatch.
-- BM25 latency "~0ms" in CONTEXT.md: Research suggests 0.5-2ms per query for 500 chunks on CPU. Verify empirically in Plan 04.
-- ECS task memory headroom for all-MiniLM-L6-v2 at 512MB: Research suggests OOM risk is HIGH. Verify by running container locally with memory limit before ECS deploy.
+### Tertiary (LOW confidence — flag for validation)
+- Government synonym pairs: Domain-derived, not validated against specific Jackson County corpus
+- GXA intent list: Derived from Granicus marketing materials; actual intent volume distribution unknown
+- Groundedness proxy algorithm: Custom heuristic; not benchmarked against labeled Jackson County data
 
 ---
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH — all libraries verified (rank-bm25 on PyPI, sentence-transformers on HuggingFace, DynamoDB patterns from AWS docs)
-- Architecture: HIGH — BM25 in-memory pattern, DynamoDB corpus scan, Redis cache layer are established patterns
-- Memory risk (Pitfall 1): HIGH confidence this is a real risk — ECS OOM behavior, model size, PyTorch overhead all verified
-- BM25 accuracy for government FAQ: MEDIUM — recall figures from 2025 research; government-specific benchmarks not independently verified
-- Latency estimates: MEDIUM — CONTEXT.md figures used; CloudWatch data from Phase 0 should be checked against these
+- EC2 removal impact: HIGH — purely architectural, no technical risk
+- Standard stack (DynamoDB + BM25 + Redis): HIGH — all three verified via official docs and PyPI
+- ECS memory (1024MB): HIGH — Fargate memory/CPU combinations verified; model size ~91MB confirmed
+- IAM permissions: HIGH — all action names verified against AWS IAM permissions reference
+- DynamoDB data model: HIGH — schema patterns verified against AWS official blog post
+- Conversation tracking: HIGH — DynamoDB TTL and session patterns well-documented
+- Government synonyms: MEDIUM — domain knowledge, not benchmarked
+- GXA/Granicus intents: MEDIUM — derived from marketing materials, not internal analytics
+- Hallucination proxy: MEDIUM — heuristic approach, RAGAS-inspired but not formally validated
+- Cost per conversation formula: MEDIUM — pricing estimates from AWS public pricing pages (ap-south-1)
 
 **Research date:** 2026-03-10
-**Valid until:** 2026-06-10 (90 days; all-MiniLM-L6-v2 is stable; DynamoDB pricing stable; rank-bm25 API stable)
-
-**Key action before planning:** The three existing plan files need revision against the new DynamoDB + BM25 + Redis architecture. The existing Plan 02 (Aurora pgvector) must be fully replaced. Plan 01 needs the `AwsKnowledgeAdapter` constructor updated to `DynamoBM25KnowledgeAdapter`. Plan 03 needs the ECS memory upgrade (512MB → 1024MB) added as a blocking prerequisite step.
+**Valid until:** 2026-04-10 (30-day window for stable stack)
+**Next research trigger:** If Granicus releases new GXA intent taxonomy, or if DynamoDB pricing changes in ap-south-1.
