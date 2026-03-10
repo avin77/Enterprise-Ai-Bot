@@ -1,0 +1,45 @@
+version: "3.9"
+
+# Local dev environment for two-tier deployment (Local Docker Compose + ECS Fargate).
+# No EC2 tier. Stack: DynamoDB + BM25 (rank_bm25) + Redis.
+#
+# Windows note: ${HOME} may not expand correctly in Docker Desktop on Windows.
+# If the AWS credential mount fails, replace ${HOME} with your actual home directory
+# (e.g., C:/Users/shobh) or use Docker Desktop's built-in AWS credential sharing.
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      USE_AWS_MOCKS: "${USE_AWS_MOCKS:-true}"
+      AWS_REGION: "${AWS_REGION:-ap-south-1}"
+      REDIS_URL: "redis://redis:6379"
+      KNOWLEDGE_TABLE: "${KNOWLEDGE_TABLE:-voicebot-faq-knowledge}"
+      CONVERSATIONS_TABLE: "${CONVERSATIONS_TABLE:-voicebot-conversations}"
+      S3_FAQ_BUCKET: "${S3_FAQ_BUCKET:-voicebot-faq-documents}"
+      BEDROCK_MODEL_ID: "${BEDROCK_MODEL_ID:-anthropic.claude-3-5-sonnet-20241022-v2:0}"
+    volumes:
+      - "${HOME}/.aws:/root/.aws:ro"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
