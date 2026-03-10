@@ -1,0 +1,58 @@
+{
+  "family": "voice-bot-mvp",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::148952810686:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::148952810686:role/voicebot-task-role",
+  "containerDefinitions": [
+    {
+      "name": "orchestrator",
+      "image": "148952810686.dkr.ecr.ap-south-1.amazonaws.com/voice-bot-mvp:latest",
+      "portMappings": [{"containerPort": 8000, "protocol": "tcp"}],
+      "essential": true,
+      "environment": [
+        {"name": "USE_AWS_MOCKS", "value": "false"},
+        {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "REDIS_URL", "value": "redis://localhost:6379"},
+        {"name": "KNOWLEDGE_TABLE", "value": "voicebot-faq-knowledge"},
+        {"name": "CONVERSATIONS_TABLE", "value": "voicebot-conversations"},
+        {"name": "S3_FAQ_BUCKET", "value": "voicebot-faq-documents"},
+        {"name": "BEDROCK_MODEL_ID", "value": "anthropic.claude-3-5-sonnet-20241022-v2:0"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/voice-bot-mvp",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "memory": 900,
+      "cpu": 460
+    },
+    {
+      "name": "redis",
+      "image": "redis:7-alpine",
+      "portMappings": [{"containerPort": 6379, "protocol": "tcp"}],
+      "essential": false,
+      "memory": 60,
+      "cpu": 50,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "redis-cli ping || exit 1"],
+        "interval": 10,
+        "timeout": 3,
+        "retries": 3,
+        "startPeriod": 10
+      }
+    }
+  ]
+}

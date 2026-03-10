@@ -1,0 +1,65 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDBFAQKnowledgeAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-faq-knowledge",
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-faq-knowledge/index/*",
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-conversations",
+        "arn:aws:dynamodb:ap-south-1:148952810686:table/voicebot-conversations/index/*"
+      ]
+    },
+    {
+      "Sid": "S3FAQDocumentRead",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::voicebot-faq-documents",
+        "arn:aws:s3:::voicebot-faq-documents/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchMetricsPublish",
+      "Effect": "Allow",
+      "Action": ["cloudwatch:PutMetricData"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BedrockInference",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:ap-south-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
+      ]
+    },
+    {
+      "Sid": "TranscribeStreaming",
+      "Effect": "Allow",
+      "Action": [
+        "transcribe:StartStreamTranscription",
+        "transcribe:StartStreamTranscriptionWebSocket"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PollyTTS",
+      "Effect": "Allow",
+      "Action": ["polly:SynthesizeSpeech", "polly:DescribeVoices"],
+      "Resource": "*"
+    }
+  ]
+}

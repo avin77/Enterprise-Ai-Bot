@@ -1,0 +1,50 @@
+[
+  {
+    "department": "tax",
+    "chunk_id": "faq:tax:0",
+    "answer": "Property taxes in Jackson County are due on October 15 each year. You can pay online at jacksongov.org/taxes or in person at the County Collector's office.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "tax",
+    "chunk_id": "faq:tax:1",
+    "answer": "To appeal your property assessment, you must file a written appeal with the Board of Equalization within 30 days of receiving your assessment notice. Contact the Assessment Department at (816) 881-3530.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "voter",
+    "chunk_id": "faq:voter:0",
+    "answer": "Voter registration in Missouri closes 28 days before an election. You can register online at sos.mo.gov, by mail, or in person at any license office or the Election Board.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "voter",
+    "chunk_id": "faq:voter:1",
+    "answer": "To request an absentee ballot, submit an absentee ballot application to the Jackson County Election Board at least one week before the election. Applications are available at jacksongov.org/elections.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "permit",
+    "chunk_id": "faq:permit:0",
+    "answer": "Building permits in unincorporated Jackson County are issued by the Development Services department. Submit your application at jacksongov.org/permits. Processing takes 5-10 business days.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "permit",
+    "chunk_id": "faq:permit:1",
+    "answer": "A home occupation permit is required if you run a business from your home in unincorporated Jackson County. Annual fee is $35. Apply online or at 415 E 12th Street, Kansas City, MO 64106.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "utility",
+    "chunk_id": "faq:utility:0",
+    "answer": "Kansas City Water Services handles water and sewer billing. To report an outage or water main break, call (816) 513-0567 any time, 24 hours a day, 7 days a week.",
+    "source_doc": "sample_faqs.json"
+  },
+  {
+    "department": "general",
+    "chunk_id": "faq:general:0",
+    "answer": "The Jackson County Courthouse is located at 415 E 12th Street, Kansas City, MO 64106. Office hours are Monday through Friday, 8:00 AM to 5:00 PM, except on official county holidays.",
+    "source_doc": "sample_faqs.json"
+  }
+]
