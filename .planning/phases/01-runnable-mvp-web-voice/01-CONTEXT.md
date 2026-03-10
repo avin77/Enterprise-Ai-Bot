@@ -1,29 +1,37 @@
 # Phase 1: GXA Voice Baseline - Context
 
 **Gathered:** 2026-03-09
-**Status:** Context locked — architecture updated 2026-03-10 (three-tier deployment, BM25+DynamoDB RAG, 4-plan structure)
+**Status:** Context locked — architecture updated 2026-03-10 (TWO-TIER ONLY: Local Docker + ECS Fargate; EC2 tier removed; BM25+DynamoDB RAG; 4-plan structure)
 
 <domain>
 ## Phase Boundary
 
-Implement a runnable MVP web voice bot with RAG knowledge base for Jackson County government FAQs. Uses a three-tier deployment strategy (Local Docker → EC2 → ECS) with a single shared codebase. Inserts RAG between ASR and LLM to ground answers in official county documents. Establishes turn latency baseline (<1.5s end-to-end).
+Implement a runnable MVP web voice bot with RAG knowledge base for Jackson County government FAQs. Uses a **two-tier** deployment strategy:
+
+- **Tier 1 — Local Docker Compose:** Dev and pre-production testing ($0 compute)
+- **Tier 2 — ECS Fargate (existing cluster):** Live Jackson County MVP (~$15.50/mo)
+
+**No EC2 tier exists in Phase 1.** EC2 was evaluated and removed from the architecture on 2026-03-10. All cloud traffic runs on ECS Fargate only. A single shared codebase serves both tiers with configuration-only differences (credentials, service endpoints).
+
+RAG inserts between ASR and LLM stages to ground answers in official county documents. Establishes turn latency baseline (<1.5s end-to-end).
 
 </domain>
 
 <decisions>
 ## Implementation Decisions
 
-### Three-Tier Deployment Strategy (LOCKED)
-Same codebase runs in all three tiers — only configuration (credentials, service endpoints) changes:
+### Two-Tier Deployment Strategy (LOCKED)
+Same codebase runs in both tiers — only configuration (credentials, service endpoints) changes:
 
 | Tier | Environment | Cost | Purpose |
 |------|------------|------|---------|
 | Tier 1 | Local Machine (Docker Compose) | $0 compute, ~$5/mo API | Dev, fast iteration |
-| Tier 2 | EC2 single instance (t3.micro) | ~$10/mo | Pre-production testing |
-| Tier 3 | ECS Fargate (existing cluster) | ~$60-80/mo shared | Live Jackson County MVP |
+| Tier 2 | ECS Fargate (existing cluster) | ~$15.50/mo | Live Jackson County MVP |
 
-- **AWS credentials:** Local uses `~/.aws/credentials`, EC2 uses ec2-user credentials, ECS uses IAM roles
-- **Service discovery:** Local uses `localhost:PORT`, ECS uses container names (`rag-service:8001`)
+- **AWS credentials:** Local uses `~/.aws/credentials`, ECS uses IAM roles
+- **Service discovery:** Local uses `localhost:PORT`, ECS uses container names (`redis://localhost:6379` within task)
+
+**EC2 tier removed 2026-03-10.** There is no Tier 3. All pre-production testing runs locally via Docker Compose. ECS Fargate is the only cloud deployment target for Phase 1.
 
 ### RAG Service Architecture (LOCKED)
 **For MVP: all services run in same ECS task to save cost (import as modules, not separate processes)**
@@ -32,7 +40,7 @@ Services:
 - **Port 8000:** Orchestrator (FastAPI WebSocket — existing Phase 0 service, modified)
 - **Port 8001:** Embedding service (all-MiniLM-L6-v2, FastAPI, imported as module in MVP)
 - **Port 8002:** BM25 service (stateless reranker, FastAPI, imported as module in MVP)
-- **Shared:** Redis cache (local: Redis container; ECS: same-task Redis or ElastiCache)
+- **Shared:** Redis cache (local: Redis container; ECS: Redis sidecar in same task)
 
 Upgrade to separate ECS tasks in Phase 2 when independent scaling is needed.
 
@@ -40,7 +48,7 @@ Upgrade to separate ECS tasks in Phase 2 when independent scaling is needed.
 - **Embedding model:** `all-MiniLM-L6-v2` (384-dim, Sentence Transformers, ~5ms inference)
   - Local: runs in-process (free, offline-capable)
   - ECS: runs in same task (no cold starts)
-- **Reranking:** BM25 (~0ms — pure text matching, no ML inference needed)
+- **Reranking:** BM25 (~1-2ms — pure text matching, no ML inference needed)
   - Why BM25 over pgvector reranking: faster, simpler, no Aurora PostgreSQL cost (~$43-80/mo saved)
 - **Caching:** Redis (1ms lookup for repeated queries)
 - **Vector storage:** DynamoDB (FAQ text, metadata, pre-computed 384-dim embeddings)
@@ -123,7 +131,7 @@ Upgrade to separate ECS tasks in Phase 2 when independent scaling is needed.
 - **Monthly Updates:** Knowledge base refreshes monthly with new/updated county documents
 - **Offline Capability:** Bot must work locally for development without AWS connectivity
 - **Accuracy Focus:** Authoritative, grounded answers from official Jackson County sources
-- **Source Attribution:** Responses reference which document/FAQ answered the question
+- **Source Attribution:** Responses reference which document/FAQ answered the question (Phase 1: source_doc name; page/section reference deferred to Phase 4)
 - **SLO:** <1.5s turn latency measured end-to-end
 
 </specifics>
@@ -163,9 +171,9 @@ orchestrator/          # Phase 0 backend, modified
   Dockerfile
 
 docker-compose.yml     # local dev: all services + Redis
-terraform/
-  ecs.tf               # task definitions
-  redis.tf             # ElastiCache (ECS tier)
+infra/
+  ecs_task_definition.json   # ECS task definition (1024MB/512CPU)
+  iam_task_role_policy.json  # IAM task role policy
 ```
 
 </code_context>
@@ -176,7 +184,7 @@ terraform/
 - **VAD/Silence Detection:** Defer to Phase 2 after RAG integration validated
 - **Separate ECS tasks per service:** Phase 2 (when independent scaling needed)
 - **Multi-language Support:** Future phases
-- **Advanced Citation Formatting:** Phase 4 (RAG Scale)
+- **Advanced Citation Formatting (page/section refs):** Phase 4 (RAG Scale) — RAG-02 Phase 1 covers source_doc name attribution only
 - **Auto-scraping from website:** Manually curated PDFs only; auto-scraper in backlog
 - **CrossEncoder reranking:** Phase 2 upgrade path (replace BM25 if accuracy insufficient)
 
@@ -194,4 +202,4 @@ terraform/
 
 *Phase: 01-runnable-mvp-web-voice*
 *Context gathered: 2026-03-09*
-*Last updated: 2026-03-10*
+*Last updated: 2026-03-10 (architecture: two-tier ONLY — Local Docker + ECS Fargate; EC2 tier removed)*
