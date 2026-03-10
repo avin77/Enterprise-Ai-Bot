@@ -89,7 +89,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Local Docker Compose: all services, AWS creds, Phase 0 ASR/TTS integration, SLO <1.5s local
+- [x] 01-01-PLAN.md — Local Docker Compose: all services, AWS creds, Phase 0 ASR/TTS integration, SLO <1.5s local
 - [ ] 01-02-PLAN.md — RAG services: all-MiniLM embedding, BM25 reranker + Redis cache (with fallback), S3+DynamoDB ingest, synonym expansion
 - [ ] 01-03-PLAN.md — ECS deploy: task definition (1024 MB), IAM role, RAGLLMAdapter wired to pipeline, load FAQs, E2E test
 - [ ] 01-04-PLAN.md — Latency monitoring: CloudWatch per-stage metrics, conversation tracking (session_id, turns, duration), SLO baseline
@@ -320,7 +320,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Learning MVP Bootstrap | 5/5 | Complete | 2026-03-01 |
-| 1. GXA Voice Baseline | 0/4 | In progress | - |
+| 1. GXA Voice Baseline | 1/4 | In progress | - |
 | 1.5. Agentic Voice Core ★ | 0/4 | Not started | - |
 | 2. Public Sector Safety | 0/4 | Not started | - |
 | 2.5. Conversation Memory ★ | 0/3 | Not started | - |

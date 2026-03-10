@@ -10,28 +10,29 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 10 (Runnable MVP Web Voice)
-Plan: 0 of 4 in current phase
-Status: Ready to discuss/plan
-Last activity: 2026-03-01 - Executed and verified all Phase 0 plans (00-01 to 00-04)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-03-10 - Executed Plan 01-01 (Dev environment + Wave 0 test stubs)
 
-Progress: [#---------] 10%
+Progress: [##--------] 15%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 34 min
-- Total execution time: 2.3 hours
+- Total execution time: 2.8 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 0 (Learning MVP Bootstrap) | 4 | 135 min | 34 min |
+| 0 (Learning MVP Bootstrap) | 5 | 170 min | 34 min |
+| 1 (Runnable MVP Web Voice) | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (`c10ebe6`), 00-02 (`4840edc`), 00-03 (`fb2d833`), 00-04 (`1f42703`)
-- Trend: Strong initial throughput
+- Last 5 plans: 00-01 (`c10ebe6`), 00-02 (`4840edc`), 00-03 (`fb2d833`), 00-04 (`1f42703`), 00-05 (local execution), 01-01 (`cf2bf0a`)
+- Trend: Strong throughput with Phase 1 started
 
 ## Accumulated Context
 
@@ -47,6 +48,8 @@ Recent decisions affecting current work:
 - [Phase 3]: Add formal evaluation gate before starting RAG implementation
 - [Phase 6]: Add second evaluation gate before enabling agentic tooling
 - [Phase 7-8]: Split tool functionality from agentic safety governance
+- [Phase 1, Plan 01-01]: Docker build context must be repo root (not ./backend) because existing Dockerfile uses COPY backend/ paths
+- [Phase 1, Plan 01-01]: USE_AWS_MOCKS=true as default for safe local dev; AWS_REGION defaults to ap-south-1
 
 ### Pending Todos
 
@@ -55,10 +58,10 @@ None yet.
 ### Blockers/Concerns
 
 - Local sandbox blocks atomic file replace operations used by `py_compile`; syntax verification was performed via in-memory compile checks.
-- Local sandbox/tooling lacks Terraform and live AWS credentials; infrastructure smoke tests run in local-asset mode with optional live URL checks.
+- Local sandbox/tooling lacks AWS CLI credentials for live deploy checks; infrastructure smoke tests run in local-asset mode with optional live URL checks.
 
 ## Session Continuity
 
-Last session: 2026-03-01 00:00
-Stopped at: Phase 1 ready for discuss/plan
-Resume file: .planning/phases/00-learning-mvp-bootstrap/00-VERIFICATION.md
+Last session: 2026-03-10 16:28
+Stopped at: Completed 01-01-PLAN.md (dev environment + Wave 0 test stubs)
+Resume file: .planning/phases/01-runnable-mvp-web-voice/01-01-SUMMARY.md
