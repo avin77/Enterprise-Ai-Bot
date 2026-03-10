@@ -1,91 +1,119 @@
 # Phase 1: GXA Voice Baseline - Context
 
 **Gathered:** 2026-03-09
-**Status:** Context locked — all gray areas resolved (OpenSearch alternative, embedding strategy, LLM choice, interoperability)
+**Status:** Context locked — architecture updated 2026-03-10 (three-tier deployment, BM25+DynamoDB RAG, 4-plan structure)
 
 <domain>
 ## Phase Boundary
 
-Transition the MVP into an authoritative public sector agent by tuning voice activity detection for natural pauses, integrating a local FAQ knowledge base for Jackson County government services, and establishing turn latency baselines (<2.5s). Enables resident-facing demos with accurate, grounded answers from official county documents.
+Implement a runnable MVP web voice bot with RAG knowledge base for Jackson County government FAQs. Uses a three-tier deployment strategy (Local Docker → EC2 → ECS) with a single shared codebase. Inserts RAG between ASR and LLM to ground answers in official county documents. Establishes turn latency baseline (<1.5s end-to-end).
 
 </domain>
 
 <decisions>
 ## Implementation Decisions
 
-### Knowledge Source Structure (LOCKED)
-- **Vector Embedding Strategy (Cost-Optimized):**
-  - **Unified embedding model everywhere:** Sentence Transformers `all-MiniLM-L6-v2` (384-dim)
-    - Local dev: Sentence Transformers library (free, offline-capable)
-    - Cloud production: AWS Lambda compute function (batched, on-demand)
-    - **Why:** Avoids dimension mismatch, single index strategy, costs ~$0.01/1000 embeddings vs $0.04 for Titan
-    - **Trade-off:** Slightly lower accuracy than Titan V2, acceptable for government FAQs
+### Three-Tier Deployment Strategy (LOCKED)
+Same codebase runs in all three tiers — only configuration (credentials, service endpoints) changes:
 
-- **Vector Search Service (Cost-Optimized):**
-  - **Aurora PostgreSQL Serverless v2 + pgvector** (~$43/month base + query costs)
-    - Single database for documents, metadata, embeddings, full-text index
-    - Supports hybrid search (exact match + semantic vector similarity)
-    - SQL queries for ranking and filtering
-    - Better latency predictability than Lambda scanning
-  - **Alternative if cost still high:** DynamoDB scan + rank in Lambda ($5-20/mo, slower but functional)
+| Tier | Environment | Cost | Purpose |
+|------|------------|------|---------|
+| Tier 1 | Local Machine (Docker Compose) | $0 compute, ~$5/mo API | Dev, fast iteration |
+| Tier 2 | EC2 single instance (t3.micro) | ~$10/mo | Pre-production testing |
+| Tier 3 | ECS Fargate (existing cluster) | ~$60-80/mo shared | Live Jackson County MVP |
 
-- **Data Pipeline (Monthly Updates):**
-  1. Manual PDF extraction from Jackson County official documents (no auto-scraper, human-curated)
-  2. FAQ parser: Extract Q&A pairs from PDFs and web content
-  3. Semantic chunking: Split into logical document chunks
-  4. Vector embedding: Batch compute using Sentence Transformers (Lambda or local dev) → 384-dim vectors
-  5. Hybrid indexing: Store in Aurora PostgreSQL with document text, embeddings, metadata
+- **AWS credentials:** Local uses `~/.aws/credentials`, EC2 uses ec2-user credentials, ECS uses IAM roles
+- **Service discovery:** Local uses `localhost:PORT`, ECS uses container names (`rag-service:8001`)
 
-- **Search Strategy (Hybrid):**
-  - Semantic search: pgvector similarity for intent matching ("Can I get a permit?" → relevant permits)
-  - Exact match: PostgreSQL full-text search for direct keyword lookups
-  - Combined ranking: Query re-ranks results by relevance before passing to LLM
+### RAG Service Architecture (LOCKED)
+**For MVP: all services run in same ECS task to save cost (import as modules, not separate processes)**
 
-- **Initial Knowledge Corpus:**
-  - Jackson County FAQs (2023-2025)
-  - Permits & forms (planning, zoning, environmental, public works)
-  - Finance & collections info (tax, vendor, procurement)
-  - HR, emergency management, elections resources
-  - ~50 PDFs covering major departments and services
+Services:
+- **Port 8000:** Orchestrator (FastAPI WebSocket — existing Phase 0 service, modified)
+- **Port 8001:** Embedding service (all-MiniLM-L6-v2, FastAPI, imported as module in MVP)
+- **Port 8002:** BM25 service (stateless reranker, FastAPI, imported as module in MVP)
+- **Shared:** Redis cache (local: Redis container; ECS: same-task Redis or ElastiCache)
 
-### RAG Integration Point
-- **LLM:** Claude 3.5 Sonnet (balanced cost/speed/accuracy for government FAQs)
-- Knowledge context injected into LLM via **System Prompt** (clearest audit trail, supports full FAQ context without token overhead)
-- Retrieve relevant FAQ snippets before each LLM call using hybrid search (semantic + exact match)
-- Pass top 3-5 most relevant FAQs as context in the system prompt (within 100k token context window)
-- Always include source document attribution in the response (e.g., "Per Jackson County FAQs: [document name], [page]")
+Upgrade to separate ECS tasks in Phase 2 when independent scaling is needed.
 
-### System Interoperability
-- **KnowledgeAdapter Interface (Portable):**
-  - `MockKnowledgeAdapter`: SQLite + Sentence Transformers (dev, offline-capable)
-  - `AwsKnowledgeAdapter`: Aurora PostgreSQL + Lambda batching (staging/production)
-  - Design with clean interface: `search(query: str, top_k: int) → List[Document]`
-  - Allows swapping implementations without changing VoicePipeline code
-  - Can be extracted to standalone Python package for reuse in other projects (Phase 3+ decision)
-  - VoicePipeline receives KnowledgeAdapter instance via dependency injection
+### RAG Stack (LOCKED)
+- **Embedding model:** `all-MiniLM-L6-v2` (384-dim, Sentence Transformers, ~5ms inference)
+  - Local: runs in-process (free, offline-capable)
+  - ECS: runs in same task (no cold starts)
+- **Reranking:** BM25 (~0ms — pure text matching, no ML inference needed)
+  - Why BM25 over pgvector reranking: faster, simpler, no Aurora PostgreSQL cost (~$43-80/mo saved)
+- **Caching:** Redis (1ms lookup for repeated queries)
+- **Vector storage:** DynamoDB (FAQ text, metadata, pre-computed 384-dim embeddings)
+- **PDF storage:** S3 (raw source documents)
 
-### Latency Measurement
-- Track **per-stage breakdowns**: ASR time, RAG lookup time, LLM inference time, TTS synthesis time
-- Measure from first audio frame received to final audio output complete
-- Store aggregated metrics hourly (p50, p95, p99 latencies) in CloudWatch
-- Log detailed per-request timing for analysis and optimization
+### Cost Comparison
+| Option | Monthly Cost | Decision |
+|--------|--------------|---------|
+| Aurora PostgreSQL + pgvector (prev plan) | ~$43-80 | Dropped — overkill for 50 FAQs |
+| **DynamoDB + BM25 + Redis (chosen)** | **~$5-15** | Simple, fast, cheap for FAQ scale |
+| OpenSearch Serverless | ~$174 | Expensive, not needed |
 
-### Cost Comparison (Staging Environment)
-| Option | Monthly Cost | Trade-off |
-|--------|--------------|-----------|
-| OpenSearch Serverless (research) | ~$174 | Hybrid search, lowest latency, expensive |
-| **Aurora PostgreSQL + pgvector (chosen)** | **~$43-80** | Good latency, SQL familiarity, scalable to production |
-| DynamoDB + Lambda scan | ~$5-20 | Cheapest, slow search, limited ranking |
-| Kendra | ~$230+ | Simplest ops, expensive, overkill for 50 PDFs |
+### Data Pipeline (Monthly Updates)
+1. Manual PDF extraction from Jackson County official documents (human-curated)
+2. FAQ parser: Extract Q&A pairs from PDFs
+3. Semantic chunking: Split into logical chunks
+4. Batch embed: Sentence Transformers → 384-dim vectors
+5. Store: DynamoDB (text + embeddings + metadata), S3 (raw PDFs)
 
-**Chosen approach saves ~$100/month vs OpenSearch, meets latency SLO.**
+### RAG Integration Point (LOCKED)
+- **LLM:** Claude 3.5 Sonnet
+- Modify `LLMAdapter` → `RAGLLMAdapter` (minimal change):
+  ```python
+  class RAGLLMAdapter(LLMAdapter):
+      def __init__(self, rag_service_url):
+          self.rag_service = rag_service_url  # http://localhost:8001 or http://rag-service:8001
+
+      def generate(self, user_query, conversation_history):
+          rag_result = requests.post(
+              f"{self.rag_service}/search",
+              json={"query": user_query, "client_id": "jackson-county", "k": 3}
+          ).json()
+          return claude.messages.create(
+              system=f"You are a helpful government assistant.\n\n{rag_result['faq_context']}",
+              messages=[{"role": "user", "content": user_query}]
+          )
+  ```
+- Pass top 3 FAQs as context in system prompt
+- Always include source attribution in responses
+
+### Latency SLO (LOCKED)
+- **Target:** <1.5s turn latency (end-to-end: ASR start → TTS complete)
+  - ASR: ~200ms
+  - Embed + BM25 + Redis: ~6ms
+  - LLM: ~800ms
+  - TTS: ~400ms
+- Track per-stage breakdowns in CloudWatch (p50, p95, p99)
+
+### Initial Knowledge Corpus
+- Jackson County FAQs (2023-2025)
+- Permits & forms (planning, zoning, environmental, public works)
+- Finance & collections info (tax, vendor, procurement)
+- HR, emergency management, elections resources
+- ~50 PDFs covering major departments and services
+
+### ECS Resource Requirements (LOCKED — research verified 2026-03-10)
+- **ECS task memory: 1024MB** (all-MiniLM-L6-v2 requires ~91MB model + ~150MB PyTorch; 512MB causes OOM)
+- **ECS task CPU: 512 units** (upgrade from 256 to handle embedding inference without throttling)
+- **Monthly cost: ~$15.50/mo** (up from $8.96/mo at 512MB/256CPU)
+
+### BM25 Accuracy Policy (LOCKED)
+- BM25 70-80% recall@5 is acceptable for Phase 1 MVP
+- Paraphrase misses (e.g., "what do I owe?" vs "property tax payment") mitigated by system prompt query expansion
+- Upgrade path: hybrid semantic + BM25 in Phase 2 if accuracy is insufficient after real user testing
+- BM25 actual latency: ~1-2ms (not 0ms — corrected from prior estimate)
 
 ### Claude's Discretion
-- Exact chunking size and overlap strategy for FAQ splitting (balanced for search accuracy)
-- Caching strategy for frequently accessed FAQs (Redis or in-process?)
-- CloudWatch dashboard visualization (timings, outliers, trend analysis)
-- PostgreSQL query tuning (indexes, cost estimation for hybrid search)
-- Sentence Transformers version pinning and model cache strategy
+- Exact chunking size and overlap for FAQ splitting
+- BM25 scoring parameters (k1, b values)
+- Redis TTL for cached query results
+- CloudWatch dashboard visualization (per-stage timings, outliers)
+- DynamoDB table schema (GSI design for client_id filtering, with boto3 paginator from day one)
+- System prompt query expansion wording for paraphrase gap mitigation
 
 </decisions>
 
@@ -94,19 +122,19 @@ Transition the MVP into an authoritative public sector agent by tuning voice act
 
 - **Monthly Updates:** Knowledge base refreshes monthly with new/updated county documents
 - **Offline Capability:** Bot must work locally for development without AWS connectivity
-- **Accuracy Focus:** Anyone visiting Jackson County should get authoritative, grounded answers from official sources
-- **Multi-Query Support:** Support semantic search + exact match + text lookup together
-- **Source Attribution:** Responses should reference which document/FAQ answered the question
+- **Accuracy Focus:** Authoritative, grounded answers from official Jackson County sources
+- **Source Attribution:** Responses reference which document/FAQ answered the question
+- **SLO:** <1.5s turn latency measured end-to-end
 
 </specifics>
 
 <code_context>
 ## Existing Code Insights
 
-### Reusable Assets
-- **ASRAdapter** (backend/app/services/asr.py): Adapter pattern for ASR implementations; RAG should follow same pattern for knowledge retrieval
-- **VoicePipeline** (backend/app/orchestrator/pipeline.py): Orchestrates ASR → LLM → TTS; needs LLM context injection point for RAG
-- **LLMAdapter**: Will need modification to accept knowledge context alongside user input
+### Reusable Assets (Phase 0)
+- **ASRAdapter** (backend/app/services/asr.py): Adapter pattern; RAG embedding service follows same pattern
+- **VoicePipeline** (backend/app/orchestrator/pipeline.py): Orchestrates ASR → LLM → TTS; RAG inserts between ASR and LLM
+- **LLMAdapter**: Minimal modification to `RAGLLMAdapter` — add RAG service call before Claude invocation
 
 ### Established Patterns
 - Adapter-based service abstraction (Mock + AWS implementations)
@@ -114,33 +142,56 @@ Transition the MVP into an authoritative public sector agent by tuning voice act
 - WebSocket streaming for voice I/O
 
 ### Integration Points
-- Knowledge retrieval must integrate into **LLMAdapter.generate()** — pass relevant FAQ context to prompt
-- Latency tracking should hook into **VoicePipeline** at each stage (ASR, RAG lookup, LLM, TTS)
-- Vector embeddings computed offline, stored in SQLite/DynamoDB for inference
+- `LLMAdapter.generate()` → modified to call RAG service, inject FAQ context into system prompt
+- `VoicePipeline` — latency tracking hooks at each stage (ASR, RAG lookup, LLM, TTS)
+- Pre-computed embeddings in DynamoDB (no inference at query time for vector lookup)
 
-### Architecture Decisions Enabled
-- RAG lookup can be synchronous (pre-computed vectors) or asynchronous (external service)
-- Embedding model choice affects latency vs accuracy tradeoff
+### New File Structure
+```
+embedding-service/
+  app.py (FastAPI, all-MiniLM-L6-v2)
+  Dockerfile
+  requirements.txt
+
+bm25-service/
+  app.py (FastAPI, BM25 reranker)
+  Dockerfile
+  requirements.txt
+
+orchestrator/          # Phase 0 backend, modified
+  rag_client.py        # new: calls embedding + BM25 services
+  Dockerfile
+
+docker-compose.yml     # local dev: all services + Redis
+terraform/
+  ecs.tf               # task definitions
+  redis.tf             # ElastiCache (ECS tier)
+```
 
 </code_context>
 
 <deferred>
 ## Deferred Ideas
 
-- **VAD/Silence Detection** (Point 1): Defer to Phase 1 Plan 02 or Phase 2 after initial RAG integration
-- **Multi-language Support:** Revisit in future phases
-- **Advanced Citation Formatting:** Current phase focuses on reference only; rich citations in Phase 4 (RAG Scale)
-- **Auto-scraping from website:** Manually curated PDFs only; auto-scraper in backlog for future scalability
+- **VAD/Silence Detection:** Defer to Phase 2 after RAG integration validated
+- **Separate ECS tasks per service:** Phase 2 (when independent scaling needed)
+- **Multi-language Support:** Future phases
+- **Advanced Citation Formatting:** Phase 4 (RAG Scale)
+- **Auto-scraping from website:** Manually curated PDFs only; auto-scraper in backlog
+- **CrossEncoder reranking:** Phase 2 upgrade path (replace BM25 if accuracy insufficient)
 
 </deferred>
 
 ---
 
-**Next Steps:**
-1. Detailed discussion: RAG Integration Point (how knowledge enters LLM)
-2. Detailed discussion: Latency Measurement (tracking 2.5s baseline)
-3. Planning: `/gsd:plan-phase 1` with these locked decisions
+**Plan Structure (4 plans):**
+- Plan 01: Local System Setup — Docker Compose, AWS creds, Phase 0 integration, SLO <1.5s local
+- Plan 02: RAG Services Implementation — embedding service, BM25, Redis cache, S3+DynamoDB pipeline
+- Plan 03: ECS Deployment & Integration — task definitions, RAGLLMAdapter, load Jackson County FAQs, E2E test
+- Plan 04: Latency Measurement & Monitoring — CloudWatch metrics, SLO baseline, bottleneck optimization
+
+**Next Step:** Run `/gsd:plan-phase 1` to generate detailed implementation plans for all 4 plans.
 
 *Phase: 01-runnable-mvp-web-voice*
 *Context gathered: 2026-03-09*
-*Last updated: 2026-03-09*
+*Last updated: 2026-03-10*

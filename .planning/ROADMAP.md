@@ -42,20 +42,22 @@ Plans:
 - [x] 00-05-PLAN.md - Switch AWS bootstrap acceptance to CLI-first deploy/smoke/teardown flow
 
 ### Phase 1: GXA Voice Baseline
-**Goal:** Transition the MVP into an authoritative public sector agent with tuned voice activity and local knowledge.
+**Goal:** Runnable MVP web voice bot with RAG knowledge base — same codebase across Local Docker, EC2, and ECS. Grounds Jackson County FAQ answers using DynamoDB + BM25 + Redis. Turn latency <1.5s end-to-end.
 **Depends on:** Phase 0
 **Requirements:** [VOIC-03, RAG-01, RAG-02]
 **Gap Closure:** Accelerates knowledge grounding and voice usability for resident-facing demos.
 **Success Criteria** (what must be TRUE):
-  1. Bot answers Jackson County FAQs correctly from a RAG index backed by Aurora PostgreSQL + pgvector.
-  2. VoicePipeline injects top-3 to top-5 FAQ context chunks into every LLM call with source attribution.
-  3. Turn latency (ASR start to TTS complete) is measured per-stage and below 2.5s baseline.
-**Plans:** 3 plans
+  1. Bot answers Jackson County FAQs correctly via RAG (DynamoDB + BM25 + Redis, all-MiniLM-L6-v2 embeddings).
+  2. RAGLLMAdapter injects top-3 FAQ context chunks into every LLM call with source attribution.
+  3. Turn latency (ASR start to TTS complete) is measured per-stage and below 1.5s p95 baseline.
+  4. Same Docker Compose codebase runs locally and deploys to ECS without code changes (config only).
+**Plans:** 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md - Define KnowledgeAdapter contract, wire RAG stage into VoicePipeline, add per-stage timing fields
-- [ ] 01-02-PLAN.md - Implement AwsKnowledgeAdapter with Aurora pgvector hybrid search and PDF ingest pipeline
-- [ ] 01-03-PLAN.md - Add CloudWatch latency metrics, /metrics endpoint, and human checkpoint for SLO baseline
+- [ ] 01-01-PLAN.md - Local system setup: Docker Compose with all services, AWS creds, Phase 0 ASR/TTS integration, SLO <1.5s local
+- [ ] 01-02-PLAN.md - RAG services implementation: embedding service (all-MiniLM), BM25 reranker, Redis cache, S3+DynamoDB ingest pipeline
+- [ ] 01-03-PLAN.md - ECS deployment & integration: task definitions, RAGLLMAdapter wired to VoicePipeline, load Jackson County FAQs, E2E voice→RAG→answer test
+- [ ] 01-04-PLAN.md - Latency measurement & monitoring: CloudWatch per-stage metrics, <1.5s SLO baseline, bottleneck identification and optimization
 
 ### Phase 2: Public Sector Safety
 **Goal:** Implement security and safety guardrails required for municipal resident interactions.
