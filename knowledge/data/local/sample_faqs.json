@@ -1,50 +1,98 @@
 [
   {
-    "department": "tax",
-    "chunk_id": "faq:tax:0",
-    "answer": "Property taxes in Jackson County are due on October 15 each year. You can pay online at jacksongov.org/taxes or in person at the County Collector's office.",
-    "source_doc": "sample_faqs.json"
+    "question": "When is my property tax due?",
+    "answer": "Jackson County property taxes are due by October 15 each year. Payments can be made online at jacksongov.org/taxes, by mail, or in person at the County Collector's office at 415 E 12th Street, Kansas City, MO 64106. Late payments incur a 1.5% monthly penalty.",
+    "source_doc": "property-tax-faq.pdf",
+    "department": "finance",
+    "chunk_id": "property-tax-faq.pdf:chunk:0",
+    "page_ref": null
   },
   {
-    "department": "tax",
-    "chunk_id": "faq:tax:1",
-    "answer": "To appeal your property assessment, you must file a written appeal with the Board of Equalization within 30 days of receiving your assessment notice. Contact the Assessment Department at (816) 881-3530.",
-    "source_doc": "sample_faqs.json"
+    "question": "How do I appeal my property assessment?",
+    "answer": "To appeal your property assessment in Jackson County, file a written appeal with the Board of Equalization within 30 days of receiving your assessment notice. You can file online at jacksongov.org/appeal or contact the Assessment Department at (816) 881-3530.",
+    "source_doc": "property-tax-faq.pdf",
+    "department": "finance",
+    "chunk_id": "property-tax-faq.pdf:chunk:1",
+    "page_ref": null
   },
   {
-    "department": "voter",
-    "chunk_id": "faq:voter:0",
-    "answer": "Voter registration in Missouri closes 28 days before an election. You can register online at sos.mo.gov, by mail, or in person at any license office or the Election Board.",
-    "source_doc": "sample_faqs.json"
+    "question": "How do I register to vote in Jackson County?",
+    "answer": "Voter registration in Missouri closes 28 days before an election. You can register online at sos.mo.gov, by mail, or in person at any DMV, library, or the Jackson County Election Board at 2720 E 12th Street, Kansas City, MO 64109.",
+    "source_doc": "elections-faq.pdf",
+    "department": "elections",
+    "chunk_id": "elections-faq.pdf:chunk:0",
+    "page_ref": null
   },
   {
-    "department": "voter",
-    "chunk_id": "faq:voter:1",
-    "answer": "To request an absentee ballot, submit an absentee ballot application to the Jackson County Election Board at least one week before the election. Applications are available at jacksongov.org/elections.",
-    "source_doc": "sample_faqs.json"
+    "question": "How do I request an absentee ballot?",
+    "answer": "To request an absentee ballot in Jackson County, submit an application to the Election Board at least one week before the election. Applications are available at jacksongov.org/elections or by calling (816) 325-4600.",
+    "source_doc": "elections-faq.pdf",
+    "department": "elections",
+    "chunk_id": "elections-faq.pdf:chunk:1",
+    "page_ref": null
   },
   {
-    "department": "permit",
-    "chunk_id": "faq:permit:0",
-    "answer": "Building permits in unincorporated Jackson County are issued by the Development Services department. Submit your application at jacksongov.org/permits. Processing takes 5-10 business days.",
-    "source_doc": "sample_faqs.json"
+    "question": "How do I get a building permit in Jackson County?",
+    "answer": "Building permits for unincorporated Jackson County are issued by Development Services. Submit your application online at jacksongov.org/permits or in person at 415 E 12th Street. Processing typically takes 5-10 business days. Required documents include site plan, contractor license, and project specifications.",
+    "source_doc": "building-permit-faq.pdf",
+    "department": "planning",
+    "chunk_id": "building-permit-faq.pdf:chunk:0",
+    "page_ref": null
   },
   {
-    "department": "permit",
-    "chunk_id": "faq:permit:1",
-    "answer": "A home occupation permit is required if you run a business from your home in unincorporated Jackson County. Annual fee is $35. Apply online or at 415 E 12th Street, Kansas City, MO 64106.",
-    "source_doc": "sample_faqs.json"
+    "question": "How do I report a pothole or road damage?",
+    "answer": "Report potholes and road damage in Jackson County through the online portal at jacksongov.org/roads or by calling Public Works at (816) 881-4600. Include the street address and description of the damage. Repairs are typically scheduled within 5 business days.",
+    "source_doc": "public-works-faq.pdf",
+    "department": "public-works",
+    "chunk_id": "public-works-faq.pdf:chunk:0",
+    "page_ref": null
   },
   {
-    "department": "utility",
-    "chunk_id": "faq:utility:0",
-    "answer": "Kansas City Water Services handles water and sewer billing. To report an outage or water main break, call (816) 513-0567 any time, 24 hours a day, 7 days a week.",
-    "source_doc": "sample_faqs.json"
+    "question": "When is trash and recycling picked up?",
+    "answer": "Trash and recycling pickup schedules in Jackson County depend on your zone and municipality. Check your collection schedule at jacksongov.org/solidwaste or call (816) 881-4592. Most residential areas have weekly trash pickup and bi-weekly recycling.",
+    "source_doc": "solid-waste-faq.pdf",
+    "department": "utilities",
+    "chunk_id": "solid-waste-faq.pdf:chunk:0",
+    "page_ref": null
   },
   {
-    "department": "general",
-    "chunk_id": "faq:general:0",
-    "answer": "The Jackson County Courthouse is located at 415 E 12th Street, Kansas City, MO 64106. Office hours are Monday through Friday, 8:00 AM to 5:00 PM, except on official county holidays.",
-    "source_doc": "sample_faqs.json"
+    "question": "How do I pay a court fee or traffic ticket?",
+    "answer": "Court fees and traffic tickets in Jackson County can be paid online at courts.jacksongov.org, by mail, or at the Jackson County Courthouse cashier window at 415 E 12th Street, Kansas City, MO 64106. Payment plans may be available for hardship cases.",
+    "source_doc": "courts-faq.pdf",
+    "department": "courts",
+    "chunk_id": "courts-faq.pdf:chunk:0",
+    "page_ref": null
+  },
+  {
+    "question": "How do I get a business license?",
+    "answer": "Business licenses in Jackson County are issued by the Revenue Division. New businesses must register and obtain a license before operating. Apply online at jacksongov.org/business or visit the Revenue Division at 415 E 12th Street. Annual renewal is required.",
+    "source_doc": "business-license-faq.pdf",
+    "department": "finance",
+    "chunk_id": "business-license-faq.pdf:chunk:0",
+    "page_ref": null
+  },
+  {
+    "question": "What is the Sheriff non-emergency line?",
+    "answer": "The Jackson County Sheriff non-emergency line is (816) 881-5555. For emergencies, always call 911. The Sheriff's Office serves the unincorporated areas of Jackson County. Online reporting for minor incidents is available at jacksongov.org/sheriff.",
+    "source_doc": "sheriff-faq.pdf",
+    "department": "sheriff",
+    "chunk_id": "sheriff-faq.pdf:chunk:0",
+    "page_ref": null
+  },
+  {
+    "question": "What parks and recreation programs are available?",
+    "answer": "Jackson County Parks offers programs including youth sports, senior fitness classes, nature education, and seasonal events. Register for programs online at jacksongov.org/parks or call (816) 503-4800. Parks are open dawn to dusk daily.",
+    "source_doc": "parks-faq.pdf",
+    "department": "parks",
+    "chunk_id": "parks-faq.pdf:chunk:0",
+    "page_ref": null
+  },
+  {
+    "question": "How do I apply for SNAP food assistance?",
+    "answer": "SNAP (Supplemental Nutrition Assistance Program) applications are processed through the Missouri Department of Social Services. Apply online at dss.mo.gov/fsd/fstamp, by mail, or in person at the Jackson County Family Support Division at 6305 Rockhill Road, Kansas City, MO 64131.",
+    "source_doc": "social-services-faq.pdf",
+    "department": "human-services",
+    "chunk_id": "social-services-faq.pdf:chunk:0",
+    "page_ref": null
   }
 ]

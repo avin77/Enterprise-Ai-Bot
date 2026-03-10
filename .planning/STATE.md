@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 10 (Runnable MVP Web Voice)
-Plan: 1 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-10 - Executed Plan 01-01 (Dev environment + Wave 0 test stubs)
+Last activity: 2026-03-10 - Executed Plan 01-03 (ECS task definition, IAM policy, FAQ loader, ConversationSession)
 
-Progress: [##--------] 15%
+Progress: [###-------] 25%
 
 ## Performance Metrics
 
@@ -28,11 +28,11 @@ Progress: [##--------] 15%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 0 (Learning MVP Bootstrap) | 5 | 170 min | 34 min |
-| 1 (Runnable MVP Web Voice) | 1 | 5 min | 5 min |
+| 1 (Runnable MVP Web Voice) | 3 | 12 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (`c10ebe6`), 00-02 (`4840edc`), 00-03 (`fb2d833`), 00-04 (`1f42703`), 00-05 (local execution), 01-01 (`cf2bf0a`)
-- Trend: Strong throughput with Phase 1 started
+- Last 5 plans: 00-05 (local execution), 01-01 (`cf2bf0a`), 01-02 (plan), 01-03 (`609f56a`)
+- Trend: Strong throughput with Phase 1 in progress
 
 ## Accumulated Context
 
@@ -50,6 +50,10 @@ Recent decisions affecting current work:
 - [Phase 7-8]: Split tool functionality from agentic safety governance
 - [Phase 1, Plan 01-01]: Docker build context must be repo root (not ./backend) because existing Dockerfile uses COPY backend/ paths
 - [Phase 1, Plan 01-01]: USE_AWS_MOCKS=true as default for safe local dev; AWS_REGION defaults to ap-south-1
+- [Phase 1, Plan 01-03]: ECS memory locked at 1024MB — sentence-transformers OOM-kills at 512MB with PyTorch
+- [Phase 1, Plan 01-03]: Redis sidecar essential=false — orchestrator must not fail when Redis is unavailable
+- [Phase 1, Plan 01-03]: Conversation DynamoDB write is fire-and-forget — voice latency must not depend on DynamoDB
+- [Phase 1, Plan 01-03]: /metrics endpoint shape locked (p50/p95/p99 per stage) as stub for Plan 01-04
 
 ### Pending Todos
 
@@ -62,6 +66,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10 16:28
-Stopped at: Completed 01-01-PLAN.md (dev environment + Wave 0 test stubs)
-Resume file: .planning/phases/01-runnable-mvp-web-voice/01-01-SUMMARY.md
+Last session: 2026-03-10 16:30
+Stopped at: Completed 01-03-PLAN.md (ECS task definition, IAM policy, FAQ loader, ConversationSession DynamoDB tracking)
+Resume file: .planning/phases/01-runnable-mvp-web-voice/01-03-SUMMARY.md
