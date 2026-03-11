@@ -1,0 +1,21 @@
+{
+  "TableName": "voicebot-faq-knowledge",
+  "KeySchema": [
+    {"AttributeName": "department", "KeyType": "HASH"},
+    {"AttributeName": "chunk_id",   "KeyType": "RANGE"}
+  ],
+  "AttributeDefinitions": [
+    {"AttributeName": "department", "AttributeType": "S"},
+    {"AttributeName": "chunk_id",   "AttributeType": "S"}
+  ],
+  "BillingMode": "PAY_PER_REQUEST",
+  "_notes": {
+    "page_ref": "Optional String attribute (S). Omitted for Phase 1 entries. Phase 4 populates with page/section ref.",
+    "embedding": "Binary attribute (B). 384-dim float32 numpy array as raw bytes. Used by Phase 4 hybrid search.",
+    "text": "String (S). FAQ answer text, truncated to 4000 chars for DynamoDB item size limit.",
+    "source_doc": "String (S). Source PDF filename for RAG-02 source attribution.",
+    "department": "String (S). PK. Department name e.g. finance, elections, planning, courts.",
+    "chunk_id": "String (S). SK. Format: {source_doc}:chunk:{N}.",
+    "created_at": "String (S). ISO 8601 UTC timestamp when chunk was ingested."
+  }
+}
