@@ -50,6 +50,37 @@ async def metrics() -> dict[str, Any]:
     return get_latency_buffer().all_percentiles()
 
 
+@app.get("/api/knowledge-stats")
+async def knowledge_stats() -> dict:
+    """FAQ knowledge base stats — real DynamoDB or mock."""
+    if _USE_MOCKS:
+        return {
+            "total_chunks": 12,
+            "total_documents": 3,
+            "last_ingested": "2026-03-11T00:00:00Z",
+            "source": "mock",
+        }
+    try:
+        resp = _dynamo_client.scan(
+            TableName="voicebot_faqs",
+            Select="COUNT",
+        )
+        items_resp = _dynamo_client.scan(
+            TableName="voicebot_faqs",
+            ProjectionExpression="source_doc",
+        )
+        docs = {item["source_doc"]["S"] for item in items_resp.get("Items", [])}
+        return {
+            "total_chunks": resp["Count"],
+            "total_documents": len(docs),
+            "last_ingested": None,
+            "source": "dynamodb",
+        }
+    except Exception as e:
+        logger.warning(f"knowledge-stats DynamoDB error: {e}")
+        return {"total_chunks": 0, "total_documents": 0, "last_ingested": None, "source": "error"}
+
+
 @app.websocket("/ws")
 async def voice_ws(websocket: WebSocket) -> None:
     try:
