@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Completed 01-04-PLAN.md (CloudWatch per-stage metrics, LatencyBuffer, eval script, dashboard widgets)
+last_updated: "2026-03-11T03:48:53.109Z"
+last_activity: 2026-03-10 - Executed Plan 01-03 (ECS task definition, IAM policy, FAQ loader, ConversationSession)
+progress:
+  total_phases: 16
+  completed_phases: 1
+  total_plans: 10
+  completed_plans: 9
+  percent: 80
+---
+
 # Project State
 
 ## Project Reference
@@ -14,7 +30,7 @@ Plan: 3 of 4 in current phase
 Status: In progress
 Last activity: 2026-03-10 - Executed Plan 01-03 (ECS task definition, IAM policy, FAQ loader, ConversationSession)
 
-Progress: [###-------] 25%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -33,6 +49,8 @@ Progress: [###-------] 25%
 **Recent Trend:**
 - Last 5 plans: 00-05 (local execution), 01-01 (`cf2bf0a`), 01-02 (plan), 01-03 (`609f56a`)
 - Trend: Strong throughput with Phase 1 in progress
+| Phase 01-runnable-mvp-web-voice P02 | 25 | 3 tasks | 13 files |
+| Phase 01-runnable-mvp-web-voice P04 | 25 | 4 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -54,6 +72,13 @@ Recent decisions affecting current work:
 - [Phase 1, Plan 01-03]: Redis sidecar essential=false — orchestrator must not fail when Redis is unavailable
 - [Phase 1, Plan 01-03]: Conversation DynamoDB write is fire-and-forget — voice latency must not depend on DynamoDB
 - [Phase 1, Plan 01-03]: /metrics endpoint shape locked (p50/p95/p99 per stage) as stub for Plan 01-04
+- [Phase 01-runnable-mvp-web-voice]: BM25 k1=1.5/b=0.75 chosen for verbose FAQ answer term saturation; rank_bm25 library used (not hand-rolled)
+- [Phase 01-runnable-mvp-web-voice]: BM25RedisRetriever never propagates Redis exceptions — Redis is optimization not dependency for voice turns
+- [Phase 01-runnable-mvp-web-voice]: RAGLLMAdapter injects FAQ context into Bedrock system prompt field (not user message) — locked architectural decision
+- [Phase 01-runnable-mvp-web-voice]: sentence_transformers lazy-loaded only inside load_embedding_model() to prevent 91MB PyTorch load on BM25-only import
+- [Phase 01]: Checkpoint auto-approved (auto_advance=true): rag_recall=100%, redis_fallback_ok=True confirmed in mock mode
+- [Phase 01]: Phase 1 SLO baseline documented as mock (~0ms) -- real ECS baseline measured via Phase 3 Eval Gate I
+- [Phase 01]: LatencyBuffer is in-process (not distributed) -- sufficient for Phase 1 single-ECS-task deployment
 
 ### Pending Todos
 
@@ -66,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10 16:30
-Stopped at: Completed 01-03-PLAN.md (ECS task definition, IAM policy, FAQ loader, ConversationSession DynamoDB tracking)
-Resume file: .planning/phases/01-runnable-mvp-web-voice/01-03-SUMMARY.md
+Last session: 2026-03-11T03:48:53.106Z
+Stopped at: Completed 01-04-PLAN.md (CloudWatch per-stage metrics, LatencyBuffer, eval script, dashboard widgets)
+Resume file: None

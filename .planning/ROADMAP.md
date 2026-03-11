@@ -43,7 +43,7 @@ Two-tier only (EC2 removed for simplicity):
 ## Phase List
 
 - [x] **Phase 0: Learning MVP Bootstrap** — Voice loop + ECS bootstrap (Complete 2026-03-01)
-- [ ] **Phase 1: GXA Voice Baseline** — RAG pipeline: DynamoDB + BM25 + Redis, 2-tier deploy, latency <1.5s
+- [x] **Phase 1: GXA Voice Baseline** — RAG pipeline: DynamoDB + BM25 + Redis, 2-tier deploy, latency <1.5s (completed 2026-03-11)
 - [ ] **Phase 1.5: Agentic Voice Core** ★ NEW — Orchestrator+Intent+Retrieval+Response agents, Mock Memory/Tool, agent traces
 - [ ] **Phase 2: Public Sector Safety** — PII scrubbing, guardrails, Supervisor Agent, adversarial red team eval
 - [ ] **Phase 2.5: Conversation Memory** ★ NEW — Real DynamoDB sessions, multi-turn history, conversation metrics, intent confusion matrix
@@ -86,7 +86,7 @@ Plans:
   6. IAM role includes: `dynamodb:Scan`, `dynamodb:GetItem`, `dynamodb:Query`, `dynamodb:PutItem`, `dynamodb:BatchWriteItem`, `dynamodb:UpdateItem`, `s3:GetObject`, `s3:ListBucket`, `cloudwatch:PutMetricData`.
   7. Redis failure falls back to direct BM25 — voice turn never fails due to Redis outage.
   8. Government synonym expansion applied to BM25 queries (≥30 synonym pairs for public sector terms).
-**Plans:** 2/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Local Docker Compose: all services, AWS creds, Phase 0 ASR/TTS integration, SLO <1.5s local
@@ -320,7 +320,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Learning MVP Bootstrap | 5/5 | Complete | 2026-03-01 |
-| 1. GXA Voice Baseline | 2/4 | In Progress|  |
+| 1. GXA Voice Baseline | 4/4 | Complete   | 2026-03-11 |
 | 1.5. Agentic Voice Core ★ | 0/4 | Not started | - |
 | 2. Public Sector Safety | 0/4 | Not started | - |
 | 2.5. Conversation Memory ★ | 0/3 | Not started | - |
