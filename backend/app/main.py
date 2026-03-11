@@ -61,17 +61,16 @@ async def knowledge_stats() -> dict:
             "source": "mock",
         }
     try:
-        resp = _dynamo_client.scan(
-            TableName="voicebot_faqs",
-            Select="COUNT",
-        )
-        items_resp = _dynamo_client.scan(
+        paginator = _dynamo_client.get_paginator("scan")
+        all_items = []
+        for page in paginator.paginate(
             TableName="voicebot_faqs",
             ProjectionExpression="source_doc",
-        )
-        docs = {item["source_doc"]["S"] for item in items_resp.get("Items", [])}
+        ):
+            all_items.extend(page.get("Items", []))
+        docs = {item["source_doc"]["S"] for item in all_items}
         return {
-            "total_chunks": resp["Count"],
+            "total_chunks": len(all_items),
             "total_documents": len(docs),
             "last_ingested": None,
             "source": "dynamodb",
