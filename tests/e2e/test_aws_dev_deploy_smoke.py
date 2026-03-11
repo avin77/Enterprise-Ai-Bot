@@ -58,7 +58,9 @@ class AwsDevDeploySmokeTests(unittest.TestCase):
 def test_metrics_endpoint_structure():
     """GET /metrics returns JSON with asr, rag, llm, tts keys each having p50, p95, p99."""
     from fastapi.testclient import TestClient
+
     from backend.app.main import app
+
     client = TestClient(app)
     response = client.get("/metrics")
     assert response.status_code == 200, f"Expected 200, got {response.status_code}"
@@ -67,6 +69,37 @@ def test_metrics_endpoint_structure():
         assert stage in data, f"Missing stage '{stage}' in /metrics: {data}"
         for pct in ("p50", "p95", "p99"):
             assert pct in data[stage], f"Missing {pct} in /metrics.{stage}: {data[stage]}"
+
+
+def test_phase1_latency_fields_present():
+    """Phase 1: PipelineResult has all four timing fields and they are non-negative."""
+    import asyncio
+
+    from backend.app.orchestrator.runtime import build_pipeline
+
+    pipeline = build_pipeline()
+    result = asyncio.run(pipeline.run_roundtrip(b"test audio bytes"))
+    for field_name in ("asr_ms", "rag_ms", "llm_ms", "tts_ms"):
+        val = getattr(result, field_name, None)
+        assert val is not None, f"PipelineResult missing {field_name}"
+        assert val >= 0.0, f"{field_name} must be non-negative, got {val}"
+    total = result.asr_ms + result.rag_ms + result.llm_ms + result.tts_ms
+    # Mock run will be near 0ms; real ECS run measured by evals/phase-1-eval.py
+    assert total >= 0.0, f"Total latency negative: {total}"
+
+
+def test_phase1_sources_in_result():
+    """Phase 1: PipelineResult.sources list is populated by MockKnowledgeAdapter."""
+    import asyncio
+
+    from backend.app.orchestrator.runtime import build_pipeline
+
+    pipeline = build_pipeline()
+    result = asyncio.run(pipeline.run_roundtrip(b"property tax payment"))
+    sources = getattr(result, "sources", None)
+    assert sources is not None, "PipelineResult missing sources field"
+    assert isinstance(sources, list), f"sources must be list, got {type(sources)}"
+    assert len(sources) > 0, "sources list empty -- MockKnowledgeAdapter not wired"
 
 
 if __name__ == "__main__":

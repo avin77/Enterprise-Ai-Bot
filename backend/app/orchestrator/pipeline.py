@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from backend.app.services.asr import ASRAdapter
 from backend.app.services.llm import LLMAdapter
 from backend.app.services.tts import TTSAdapter
 
-# Design note: Conversation tracking is NOT done inside VoicePipeline — it's done in the
+# Design note: Conversation tracking is NOT done inside VoicePipeline -- it's done in the
 # WebSocket handler (main.py) after the pipeline result is returned. This keeps pipeline.py
 # pure (no side effects) and testable without DynamoDB.
 
@@ -34,10 +34,17 @@ class PipelineResult:
 
 
 class VoicePipeline:
-    def __init__(self, asr: ASRAdapter, llm: LLMAdapter, tts: TTSAdapter) -> None:
+    def __init__(
+        self,
+        asr: ASRAdapter,
+        llm: LLMAdapter,
+        tts: TTSAdapter,
+        knowledge: Optional[object] = None,
+    ) -> None:
         self._asr = asr
         self._llm = llm
         self._tts = tts
+        self._knowledge = knowledge  # KnowledgeAdapter | None
 
     async def run_roundtrip(self, audio_bytes: bytes) -> PipelineResult:
         try:
@@ -47,9 +54,30 @@ class VoicePipeline:
         except Exception as exc:  # pragma: no cover - simple propagation guard
             raise PipelineStageError("asr", str(exc)) from exc
 
+        # RAG stage: retrieve knowledge chunks between ASR and LLM
+        sources: List[str] = []
+        chunk_ids: List[str] = []
+        top_score = 0.0
+        system_context = ""
+        t0 = time.monotonic()
+        if self._knowledge is not None:
+            try:
+                knowledge_result = await self._knowledge.retrieve(transcript, top_k=3)
+                sources = knowledge_result.sources
+                chunk_ids = knowledge_result.chunk_ids
+                top_score = knowledge_result.top_score
+                if knowledge_result.chunks:
+                    system_context = "\n\n".join([
+                        f"[Source: {src}]\n{chunk}"
+                        for chunk, src in zip(knowledge_result.chunks, knowledge_result.sources)
+                    ])
+            except Exception:  # pragma: no cover
+                pass  # RAG failure must never block voice response
+        rag_ms = max((time.monotonic() - t0) * 1000, 0.001)
+
         try:
             t0 = time.monotonic()
-            response_text = await self._llm.generate(transcript)
+            response_text = await self._llm.generate(transcript, system_context=system_context)
             llm_ms = (time.monotonic() - t0) * 1000
         except Exception as exc:  # pragma: no cover
             raise PipelineStageError("llm", str(exc)) from exc
@@ -66,15 +94,39 @@ class VoicePipeline:
             response_text=response_text,
             response_audio=response_audio,
             asr_ms=asr_ms,
-            rag_ms=0.0,
+            rag_ms=rag_ms,
             llm_ms=llm_ms,
             tts_ms=tts_ms,
+            sources=sources,
+            chunk_ids=chunk_ids,
+            top_score=top_score,
         )
 
     async def run_text_turn(self, text: str) -> PipelineResult:
+        # RAG stage
+        sources: List[str] = []
+        chunk_ids: List[str] = []
+        top_score = 0.0
+        system_context = ""
+        t0 = time.monotonic()
+        if self._knowledge is not None:
+            try:
+                knowledge_result = await self._knowledge.retrieve(text, top_k=3)
+                sources = knowledge_result.sources
+                chunk_ids = knowledge_result.chunk_ids
+                top_score = knowledge_result.top_score
+                if knowledge_result.chunks:
+                    system_context = "\n\n".join([
+                        f"[Source: {src}]\n{chunk}"
+                        for chunk, src in zip(knowledge_result.chunks, knowledge_result.sources)
+                    ])
+            except Exception:  # pragma: no cover
+                pass
+        rag_ms = max((time.monotonic() - t0) * 1000, 0.001)
+
         try:
             t0 = time.monotonic()
-            response_text = await self._llm.generate(text)
+            response_text = await self._llm.generate(text, system_context=system_context)
             llm_ms = (time.monotonic() - t0) * 1000
         except Exception as exc:  # pragma: no cover
             raise PipelineStageError("llm", str(exc)) from exc
@@ -91,7 +143,10 @@ class VoicePipeline:
             response_text=response_text,
             response_audio=response_audio,
             asr_ms=0.0,
-            rag_ms=0.0,
+            rag_ms=rag_ms,
             llm_ms=llm_ms,
             tts_ms=tts_ms,
+            sources=sources,
+            chunk_ids=chunk_ids,
+            top_score=top_score,
         )

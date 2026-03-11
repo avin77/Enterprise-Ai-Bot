@@ -20,7 +20,7 @@ class _RecordingLLM(LLMAdapter):
     def __init__(self, calls: list[str]) -> None:
         self.calls = calls
 
-    async def generate(self, text: str) -> str:
+    async def generate(self, text: str, system_context: str = "") -> str:
         self.calls.append("llm")
         return f"resp:{text}"
 
@@ -35,7 +35,7 @@ class _RecordingTTS(TTSAdapter):
 
 
 class _FailingLLM(LLMAdapter):
-    async def generate(self, text: str) -> str:
+    async def generate(self, text: str, system_context: str = "") -> str:
         raise RuntimeError("provider unavailable")
 
 
