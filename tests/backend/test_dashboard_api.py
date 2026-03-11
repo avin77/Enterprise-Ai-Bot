@@ -16,3 +16,5 @@ def test_knowledge_stats_returns_shape():
     assert "total_documents" in data
     assert "last_ingested" in data
     assert isinstance(data["total_chunks"], int)
+    assert "source" in data
+    assert data["source"] == "mock"
