@@ -29,7 +29,11 @@ if (_FRONTEND_DIR / "js").exists():
 @app.get("/dashboard")
 async def dashboard():
     """Serve the local observability dashboard."""
-    return FileResponse(str(_FRONTEND_DIR / "pages" / "dashboard.html"))
+    html_path = _FRONTEND_DIR / "pages" / "dashboard.html"
+    if not html_path.exists():
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "Dashboard not found. Run from project root."}, status_code=404)
+    return FileResponse(str(html_path))
 
 
 app.include_router(chat_router)
