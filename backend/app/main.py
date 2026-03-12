@@ -80,6 +80,35 @@ async def knowledge_stats() -> dict:
         return {"total_chunks": 0, "total_documents": 0, "last_ingested": None, "source": "error"}
 
 
+@app.get("/api/session-stats")
+async def session_stats() -> dict:
+    """Conversation session summary — real DynamoDB or mock."""
+    if _USE_MOCKS:
+        return {
+            "active_sessions": 2,
+            "total_turns": 8,
+            "slo_met_pct": 87.5,
+            "source": "mock",
+        }
+    try:
+        paginator = _dynamo_client.get_paginator("scan")
+        all_items = []
+        for page in paginator.paginate(TableName="voicebot_sessions"):
+            all_items.extend(page.get("Items", []))
+        total_turns = sum(int(i.get("turn_number", {}).get("N", 0)) for i in all_items)
+        slo_met = sum(1 for i in all_items if i.get("slo_met", {}).get("BOOL", False))
+        pct = round((slo_met / total_turns * 100) if total_turns else 0.0, 1)
+        return {
+            "active_sessions": len(all_items),
+            "total_turns": total_turns,
+            "slo_met_pct": pct,
+            "source": "dynamodb",
+        }
+    except Exception as e:
+        logger.warning(f"session-stats DynamoDB error: {e}")
+        return {"active_sessions": 0, "total_turns": 0, "slo_met_pct": 0.0, "source": "error"}
+
+
 @app.websocket("/ws")
 async def voice_ws(websocket: WebSocket) -> None:
     try:
