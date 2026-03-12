@@ -1,10 +1,13 @@
 import datetime
 import logging
 import os
+import pathlib
 from base64 import b64decode
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.chat import router as chat_router
 from backend.app.monitoring import get_latency_buffer, publish_turn_metrics
@@ -17,6 +20,18 @@ from backend.app.services.conversation import ConversationSession, write_convers
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Enterprise AI Voice Bot", version="0.1.0")
+
+_FRONTEND_DIR = pathlib.Path(__file__).parent.parent.parent / "frontend"
+if (_FRONTEND_DIR / "js").exists():
+    app.mount("/static/js", StaticFiles(directory=str(_FRONTEND_DIR / "js")), name="static-js")
+
+
+@app.get("/dashboard")
+async def dashboard():
+    """Serve the local observability dashboard."""
+    return FileResponse(str(_FRONTEND_DIR / "pages" / "dashboard.html"))
+
+
 app.include_router(chat_router)
 pipeline = build_pipeline()
 

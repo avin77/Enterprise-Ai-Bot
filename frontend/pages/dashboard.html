@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Bot Dashboard</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 16px; }
+    h1 { color: #58a6ff; font-size: 1.2rem; margin-bottom: 4px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; }
+    .card h2 { font-size: 0.75rem; color: #8b949e; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .metric { font-size: 2rem; font-weight: bold; color: #58a6ff; }
+    .sub { font-size: 0.75rem; color: #8b949e; margin-top: 4px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; }
+    .green { background: #1f4a1f; color: #3fb950; }
+    .yellow { background: #3d3000; color: #d29922; }
+    .red { background: #3d1010; color: #f85149; }
+    .source { font-size: 0.65rem; color: #484f58; margin-top: 8px; }
+    #status { font-size: 0.7rem; color: #484f58; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Voice Bot — Observability Dashboard</h1>
+  <div id="status">Connecting...</div>
+  <div class="grid">
+    <div class="card">
+      <h2>Knowledge Base</h2>
+      <div class="metric" id="kb-chunks">—</div>
+      <div class="sub">FAQ chunks in DynamoDB</div>
+      <div class="sub" id="kb-docs">— source documents</div>
+      <div class="source" id="kb-source"></div>
+    </div>
+    <div class="card">
+      <h2>Sessions</h2>
+      <div class="metric" id="sess-count">—</div>
+      <div class="sub">Active sessions</div>
+      <div class="sub" id="sess-turns">— total turns</div>
+      <div class="sub" id="sess-slo"></div>
+      <div class="source" id="sess-source"></div>
+    </div>
+    <div class="card">
+      <h2>Turn Latency</h2>
+      <div class="metric" id="lat-p50">—</div>
+      <div class="sub">p50 (ms)</div>
+      <div class="sub" id="lat-p95">p95: —</div>
+      <div class="sub" id="lat-p99">p99: —</div>
+      <div class="source" id="lat-source"></div>
+    </div>
+    <div class="card">
+      <h2>Pipeline Stages</h2>
+      <div id="pipeline-stages">Loading...</div>
+      <div class="source">source: in-memory buffer</div>
+    </div>
+  </div>
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

@@ -41,3 +41,9 @@ def test_cloudwatch_latency_returns_shape():
     assert "source" in data
     assert "sample_count" in data
     assert data["source"] in {"in-memory", "no-data"}
+
+
+def test_dashboard_page_loads():
+    resp = client.get("/dashboard")
+    assert resp.status_code == 200
+    assert b"Voice Bot" in resp.content
