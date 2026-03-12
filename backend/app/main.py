@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 from base64 import b64decode
@@ -127,9 +128,8 @@ async def cloudwatch_latency() -> dict:
             "sample_count": total.get("count", 0),
             "source": "in-memory",
         }
-    if not _USE_MOCKS and _dynamo_client is not None:
+    if not _USE_MOCKS:
         try:
-            import datetime
             import boto3
             cw = boto3.client("cloudwatch", region_name=os.getenv("AWS_REGION", "ap-south-1"))
             now = datetime.datetime.utcnow()

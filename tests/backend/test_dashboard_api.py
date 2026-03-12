@@ -40,3 +40,4 @@ def test_cloudwatch_latency_returns_shape():
     assert "p99_ms" in data
     assert "source" in data
     assert "sample_count" in data
+    assert data["source"] in {"in-memory", "no-data"}
