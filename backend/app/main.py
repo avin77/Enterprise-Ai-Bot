@@ -93,13 +93,17 @@ async def session_stats() -> dict:
     try:
         paginator = _dynamo_client.get_paginator("scan")
         all_items = []
-        for page in paginator.paginate(TableName="voicebot_sessions"):
+        for page in paginator.paginate(
+            TableName="voicebot_sessions",
+            ProjectionExpression="session_id, slo_met",
+        ):
             all_items.extend(page.get("Items", []))
-        total_turns = sum(int(i.get("turn_number", {}).get("N", 0)) for i in all_items)
+        total_turns = len(all_items)
+        active_sessions = len({i["session_id"]["S"] for i in all_items if "session_id" in i})
         slo_met = sum(1 for i in all_items if i.get("slo_met", {}).get("BOOL", False))
         pct = round((slo_met / total_turns * 100) if total_turns else 0.0, 1)
         return {
-            "active_sessions": len(all_items),
+            "active_sessions": active_sessions,
             "total_turns": total_turns,
             "slo_met_pct": pct,
             "source": "dynamodb",
