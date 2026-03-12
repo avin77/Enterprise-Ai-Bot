@@ -29,3 +29,14 @@ def test_session_stats_returns_shape():
     assert "source" in data
     assert 0.0 <= data["slo_met_pct"] <= 100.0
     assert data["source"] == "mock"
+
+
+def test_cloudwatch_latency_returns_shape():
+    resp = client.get("/api/cloudwatch-latency")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "p50_ms" in data
+    assert "p95_ms" in data
+    assert "p99_ms" in data
+    assert "source" in data
+    assert "sample_count" in data

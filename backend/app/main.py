@@ -113,6 +113,48 @@ async def session_stats() -> dict:
         return {"active_sessions": 0, "total_turns": 0, "slo_met_pct": 0.0, "source": "error"}
 
 
+@app.get("/api/cloudwatch-latency")
+async def cloudwatch_latency() -> dict:
+    """Recent p50/p95/p99 turn latency — in-memory buffer first, CloudWatch fallback."""
+    buf = get_latency_buffer()
+    pcts = buf.all_percentiles()
+    total = pcts.get("total", {})
+    if total.get("p50") is not None:
+        return {
+            "p50_ms": total["p50"],
+            "p95_ms": total["p95"],
+            "p99_ms": total["p99"],
+            "sample_count": total.get("count", 0),
+            "source": "in-memory",
+        }
+    if not _USE_MOCKS and _dynamo_client is not None:
+        try:
+            import datetime
+            import boto3
+            cw = boto3.client("cloudwatch", region_name=os.getenv("AWS_REGION", "ap-south-1"))
+            now = datetime.datetime.utcnow()
+            resp = cw.get_metric_statistics(
+                Namespace="voicebot/latency",
+                MetricName="TotalTurnLatency",
+                StartTime=now - datetime.timedelta(hours=1),
+                EndTime=now,
+                Period=3600,
+                Statistics=["Average"],
+            )
+            pts = resp.get("Datapoints", [])
+            avg = pts[0]["Average"] if pts else None
+            return {
+                "p50_ms": avg,
+                "p95_ms": None,
+                "p99_ms": None,
+                "sample_count": len(pts),
+                "source": "cloudwatch",
+            }
+        except Exception as e:
+            logger.warning(f"cloudwatch-latency error: {e}")
+    return {"p50_ms": None, "p95_ms": None, "p99_ms": None, "sample_count": 0, "source": "no-data"}
+
+
 @app.websocket("/ws")
 async def voice_ws(websocket: WebSocket) -> None:
     try:
