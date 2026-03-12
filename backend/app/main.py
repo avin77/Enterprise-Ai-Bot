@@ -12,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from backend.app.api.chat import router as chat_router
 from backend.app.monitoring import get_latency_buffer, publish_turn_metrics
 from backend.app.orchestrator.runtime import build_pipeline
+from backend.app.safety.pii import preload_models as _preload_pii_models
+from backend.app.safety.pii import scrub_input as _scrub_input, scrub_output as _scrub_output
 from backend.app.schemas.messages import WsClientMessage, WsServerMessage
 from backend.app.security.auth import validate_websocket_token
 from backend.app.security.rate_limit import limiter
@@ -38,6 +40,7 @@ async def dashboard():
 
 app.include_router(chat_router)
 pipeline = build_pipeline()
+_preload_pii_models()
 
 _USE_MOCKS = os.getenv("USE_AWS_MOCKS", "true").lower() in {"1", "true", "yes"}
 
@@ -195,7 +198,8 @@ async def voice_ws(websocket: WebSocket) -> None:
             raw = await websocket.receive_json()
             incoming = WsClientMessage.model_validate(raw)
             if incoming.type == "text" and incoming.text:
-                result = await pipeline.run_text_turn(incoming.text)
+                clean_text, _input_entities = _scrub_input(incoming.text)
+                result = await pipeline.run_text_turn(clean_text)
                 publish_turn_metrics(
                     result=result,
                     redis_hit=False,   # TODO Phase 2: wire actual redis_hit from knowledge adapter
@@ -203,13 +207,14 @@ async def voice_ws(websocket: WebSocket) -> None:
                     query_expanded=False,  # TODO Phase 2: wire from knowledge adapter
                     cw_client=None,    # TODO Phase 3: wire actual CloudWatch client
                 )
-                await websocket.send_json(WsServerMessage(type="bot_text", text=result.response_text).model_dump())
+                safe_response, _output_entities = _scrub_output(result.response_text)
+                await websocket.send_json(WsServerMessage(type="bot_text", text=safe_response).model_dump())
                 if _dynamo_client is not None:
                     try:
                         write_conversation_turn(
                             dynamo_client=_dynamo_client,
                             session=session,
-                            user_input=incoming.text,
+                            user_input=clean_text,
                             assistant_response=result.response_text,
                             pipeline_result=result,
                             rag_chunk_ids=result.chunk_ids or None,
