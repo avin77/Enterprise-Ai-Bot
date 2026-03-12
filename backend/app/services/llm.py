@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from backend.app.services.aws_clients import AwsClientBundle
+from backend.app.safety.guardrails import build_response_system_prompt
 
 
 class LLMAdapter(ABC):
@@ -67,7 +68,10 @@ class RAGLLMAdapter(LLMAdapter):
                 "visit jacksongov.org or call 816-881-3000."
             )
 
-        # Step 3: Call Bedrock Converse API with system prompt injection
+        # Step 3: Apply guardrail rules to system prompt
+        rag_system_prompt = build_response_system_prompt(rag_system_prompt)
+
+        # Step 4: Call Bedrock Converse API with system prompt injection
         request: dict = {
             "modelId": self._model_id,
             "system": [{"text": rag_system_prompt}],
