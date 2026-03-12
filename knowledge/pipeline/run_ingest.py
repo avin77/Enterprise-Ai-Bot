@@ -45,7 +45,7 @@ def build_dynamo_item(chunk: dict, embedding: list[float]) -> dict:
         "department": {"S": chunk["department"]},
         "page_ref": {"S": chunk.get("page_ref") or ""},
         "embedding": {"B": _floats_to_bytes(embedding)},
-        "created_at": {"S": datetime.datetime.utcnow().isoformat() + "Z"},
+        "created_at": {"S": datetime.datetime.now(datetime.timezone.utc).isoformat()},
     }
 
 
