@@ -199,6 +199,8 @@ async def voice_ws(websocket: WebSocket) -> None:
             incoming = WsClientMessage.model_validate(raw)
             if incoming.type == "text" and incoming.text:
                 clean_text, _input_entities = _scrub_input(incoming.text)
+                if _input_entities:
+                    logger.info("PII detected in user input: %s", _input_entities)
                 result = await pipeline.run_text_turn(clean_text)
                 publish_turn_metrics(
                     result=result,
@@ -208,6 +210,8 @@ async def voice_ws(websocket: WebSocket) -> None:
                     cw_client=None,    # TODO Phase 3: wire actual CloudWatch client
                 )
                 safe_response, _output_entities = _scrub_output(result.response_text)
+                if _output_entities:
+                    logger.info("PII detected in bot output: %s", _output_entities)
                 await websocket.send_json(WsServerMessage(type="bot_text", text=safe_response).model_dump())
                 if _dynamo_client is not None:
                     try:
@@ -215,7 +219,7 @@ async def voice_ws(websocket: WebSocket) -> None:
                             dynamo_client=_dynamo_client,
                             session=session,
                             user_input=clean_text,
-                            assistant_response=result.response_text,
+                            assistant_response=safe_response,
                             pipeline_result=result,
                             rag_chunk_ids=result.chunk_ids or None,
                         )
