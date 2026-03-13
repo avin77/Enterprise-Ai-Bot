@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
+stopped_at: Completed 01.5-04-PLAN.md (Agent Trace Events)
+last_updated: "2026-03-13T07:06:06.758Z"
+last_activity: 2026-03-13 - Executed Plan 01.5-01 (OrchestratorAgent, RoutingDecision, Message types)
+progress:
+  total_phases: 16
+  completed_phases: 0
+  total_plans: 16
+  completed_plans: 13
+  percent: 75
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
 stopped_at: Completed 01.5-01-PLAN.md (OrchestratorAgent + RoutingDecision types)
 last_updated: "2026-03-13T06:37:07Z"
 last_activity: 2026-03-13 - Executed Plan 01.5-01 (OrchestratorAgent, RoutingDecision, Message types)
 progress:
-  total_phases: 16
+  [████████░░] 75%
   completed_phases: 0
   total_plans: 11
   completed_plans: 10
@@ -52,6 +68,8 @@ Progress: [████████░░] 82%
 | Phase 01-runnable-mvp-web-voice P02 | 25 | 3 tasks | 13 files |
 | Phase 01-runnable-mvp-web-voice P04 | 25 | 4 tasks | 8 files |
 | Phase 01.5-agentic-voice-core P01 | 3 | 2 tasks | 3 files |
+| Phase 01.5-agentic-voice-core P02 | 3 | 3 tasks | 3 files |
+| Phase 01.5-agentic-voice-core P04 | 4 | 4 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -83,6 +101,13 @@ Recent decisions affecting current work:
 - [Phase 01.5, Plan 01.5-01]: Bedrock converse() API used (NOT Anthropic SDK) — consistent with Phase 1 pattern
 - [Phase 01.5, Plan 01.5-01]: Model anthropic.claude-3-5-haiku-20241022-v1:0 for orchestrator routing (temperature=0, max_tokens=150)
 - [Phase 01.5, Plan 01.5-01]: Confidence < 0.7 fallback enforced in Python code AND in system prompt (belt-and-suspenders)
+- [Phase 01.5-02]: RetrievalAgent is a Python class (not a Claude call) — preserves Phase 1 BM25 latency profile
+- [Phase 01.5-02]: ResponseAgent enforces max_tokens=300 as hard inferenceConfig limit for voice output
+- [Phase 01.5-02]: Phase 2 guardrails re-wired into ResponseAgent system prompt via build_response_system_prompt()
+- [Phase 01.5-04]: Trace events log to CloudWatch via Python logging (not DynamoDB) — ECS awslogs driver picks up automatically
+- [Phase 01.5-04]: emit_trace_event called via asyncio.create_task fire-and-forget — never blocks voice turn latency
+- [Phase 01.5-04]: Grounding detection is pattern-based in Phase 1.5 (According to -> grounded); LLM judge deferred to Phase 3
+- [Phase 01.5-04]: Trace events are metadata-only: no user query text, no response text — PII-safe by design
 
 ### Pending Todos
 
@@ -95,6 +120,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T06:37:07Z
-Stopped at: Completed 01.5-01-PLAN.md (OrchestratorAgent + RoutingDecision types)
-Resume file: .planning/phases/01.5-agentic-voice-core/01.5-02-PLAN.md
+Last session: 2026-03-13T07:06:06.753Z
+Stopped at: Completed 01.5-04-PLAN.md (Agent Trace Events)
+Resume file: None

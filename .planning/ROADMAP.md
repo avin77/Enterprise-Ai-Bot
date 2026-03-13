@@ -118,7 +118,7 @@ Plans:
   6. Agent trace event emitted every turn with: session_id, turn_id, intent, intent_confidence, routing_decision, retrieved_doc_ids, llm_prompt_tokens, llm_response_tokens, llm_latency_ms, tool_calls, total_latency_ms.
   7. Fallback path active: intent_confidence < 0.7 → skip Intent Agent → route directly to Retrieval Agent.
   8. Intent confusion matrix populated from every eval turn.
-**Plans:** 4 plans
+**Plans:** 4/5 plans executed
 
 Plans:
 - [x] 01.5-01-PLAN.md — Agent interfaces + Orchestrator+Intent Agent (Claude haiku, routing logic, confidence logging, fallback)
@@ -321,7 +321,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 0. Learning MVP Bootstrap | 5/5 | Complete | 2026-03-01 |
 | 1. GXA Voice Baseline | 4/4 | Complete   | 2026-03-11 |
-| 1.5. Agentic Voice Core ★ | 0/4 | Not started | - |
+| 1.5. Agentic Voice Core ★ | 4/5 | In Progress|  |
 | 2. Public Sector Safety | 0/4 | Not started | - |
 | 2.5. Conversation Memory ★ | 0/3 | Not started | - |
 | 3. Eval Gate I (Automated CI) | 0/2 | Not started | - |
