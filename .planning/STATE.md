@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1.5 context gathered via discuss-phase
-last_updated: "2026-03-13T06:31:02.535Z"
-last_activity: 2026-03-10 - Executed Plan 01-03 (ECS task definition, IAM policy, FAQ loader, ConversationSession)
+stopped_at: Completed 01.5-01-PLAN.md (OrchestratorAgent + RoutingDecision types)
+last_updated: "2026-03-13T06:37:07Z"
+last_activity: 2026-03-13 - Executed Plan 01.5-01 (OrchestratorAgent, RoutingDecision, Message types)
 progress:
   total_phases: 16
   completed_phases: 0
   total_plans: 11
-  completed_plans: 9
-  percent: 80
+  completed_plans: 10
+  percent: 82
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Deliver fast, secure, and auditable voice conversations that agencies can trust in production.
-**Current focus:** Runnable MVP Web Voice
+**Current focus:** Agentic Voice Core (Phase 1.5)
 
 ## Current Position
 
-Phase: 1 of 10 (Runnable MVP Web Voice)
-Plan: 3 of 4 in current phase
+Phase: 1.5 of 10 (Agentic Voice Core)
+Plan: 1 of 5 in current phase (01.5-01 complete)
 Status: In progress
-Last activity: 2026-03-10 - Executed Plan 01-03 (ECS task definition, IAM policy, FAQ loader, ConversationSession)
+Last activity: 2026-03-13 - Executed Plan 01.5-01 (OrchestratorAgent, RoutingDecision, Message types)
 
-Progress: [████████░░] 80%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [████████░░] 80%
 - Trend: Strong throughput with Phase 1 in progress
 | Phase 01-runnable-mvp-web-voice P02 | 25 | 3 tasks | 13 files |
 | Phase 01-runnable-mvp-web-voice P04 | 25 | 4 tasks | 8 files |
+| Phase 01.5-agentic-voice-core P01 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Checkpoint auto-approved (auto_advance=true): rag_recall=100%, redis_fallback_ok=True confirmed in mock mode
 - [Phase 01]: Phase 1 SLO baseline documented as mock (~0ms) -- real ECS baseline measured via Phase 3 Eval Gate I
 - [Phase 01]: LatencyBuffer is in-process (not distributed) -- sufficient for Phase 1 single-ECS-task deployment
+- [Phase 01.5, Plan 01.5-01]: Bedrock converse() API used (NOT Anthropic SDK) — consistent with Phase 1 pattern
+- [Phase 01.5, Plan 01.5-01]: Model anthropic.claude-3-5-haiku-20241022-v1:0 for orchestrator routing (temperature=0, max_tokens=150)
+- [Phase 01.5, Plan 01.5-01]: Confidence < 0.7 fallback enforced in Python code AND in system prompt (belt-and-suspenders)
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T06:31:02.527Z
-Stopped at: Phase 1.5 context gathered via discuss-phase
-Resume file: .planning/phases/01.5-agentic-voice-core/01.5-CONTEXT.md
+Last session: 2026-03-13T06:37:07Z
+Stopped at: Completed 01.5-01-PLAN.md (OrchestratorAgent + RoutingDecision types)
+Resume file: .planning/phases/01.5-agentic-voice-core/01.5-02-PLAN.md

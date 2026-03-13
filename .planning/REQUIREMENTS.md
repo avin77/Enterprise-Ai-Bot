@@ -41,7 +41,7 @@
 
 ### Agent Architecture
 
-- [ ] **AGENT-01**: Orchestrator+Intent Agent (Claude-backed) routes each turn, logs intent label and confidence score per turn.
+- [x] **AGENT-01**: Orchestrator+Intent Agent (Claude-backed) routes each turn, logs intent label and confidence score per turn.
 - [ ] **AGENT-02**: Retrieval Agent (Claude-backed) wraps BM25+DynamoDB RAG, returns top-3 chunks with source attribution.
 - [ ] **AGENT-03**: Response Agent (Claude-backed) synthesizes grounded final answer with citations from retrieved context.
 - [ ] **AGENT-04**: Memory Store persists conversation sessions in DynamoDB (session_id PK, turn_timestamp SK with hashed prefix, TTL 90 days); Orchestrator injects last 5 turns into context.
@@ -89,7 +89,7 @@
 | VOIC-03 | Phase 1 | Complete |
 | RAG-01 | Phase 1 | Complete |
 | RAG-02 | Phase 1 | Complete |
-| AGENT-01 | Phase 1.5 | Pending |
+| AGENT-01 | Phase 1.5 | Complete (2026-03-13) |
 | AGENT-02 | Phase 1.5 | Pending |
 | AGENT-03 | Phase 1.5 | Pending |
 | AGENT-04 | Phase 1.5 (mock) → Phase 2.5 (real) | Pending |

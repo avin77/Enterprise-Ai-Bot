@@ -121,7 +121,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 01.5-01-PLAN.md — Agent interfaces + Orchestrator+Intent Agent (Claude haiku, routing logic, confidence logging, fallback)
+- [x] 01.5-01-PLAN.md — Agent interfaces + Orchestrator+Intent Agent (Claude haiku, routing logic, confidence logging, fallback)
 - [x] 01.5-02-PLAN.md — Retrieval Agent + Response Agent wired to Phase 1 RAG (completed 2026-03-11)
 - [ ] 01.5-03-PLAN.md — Mock Memory Store (DynamoDB schema + hashed prefix) + Mock Tool Agent (canned interface)
 - [ ] 01.5-04-PLAN.md — Agent trace events: emit per turn, store in `voicebot_agent_traces`, intent confusion matrix to CloudWatch
