@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1.5 of 10 (Agentic Voice Core)
-Plan: 1 of 5 in current phase (01.5-01 complete)
+Plan: 3 of 5 in current phase (01.5-03 complete)
 Status: In progress
-Last activity: 2026-03-13 - Executed Plan 01.5-01 (OrchestratorAgent, RoutingDecision, Message types)
+Last activity: 2026-03-13 - Executed Plan 01.5-03 (MockMemoryStore, MockToolAgent, DynamoDB schema)
 
-Progress: [████████░░] 82%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [████████░░] 82%
 | Phase 01-runnable-mvp-web-voice P04 | 25 | 4 tasks | 8 files |
 | Phase 01.5-agentic-voice-core P01 | 3 | 2 tasks | 3 files |
 | Phase 01.5-agentic-voice-core P02 | 3 | 3 tasks | 3 files |
+| Phase 01.5-agentic-voice-core P03 | 15 | 4 tasks | 2 files |
 | Phase 01.5-agentic-voice-core P04 | 4 | 4 tasks | 3 files |
 
 ## Accumulated Context
@@ -92,6 +93,10 @@ Recent decisions affecting current work:
 - [Phase 01.5-04]: emit_trace_event called via asyncio.create_task fire-and-forget — never blocks voice turn latency
 - [Phase 01.5-04]: Grounding detection is pattern-based in Phase 1.5 (According to -> grounded); LLM judge deferred to Phase 3
 - [Phase 01.5-04]: Trace events are metadata-only: no user query text, no response text — PII-safe by design
+- [Phase 01.5-03]: MockMemoryStore.get_history() returns [] in Phase 1.5 — no multi-turn context injection until Phase 2.5
+- [Phase 01.5-03]: ConversationTurn includes agent metadata (intent, confidence, routing_target) from day one for richer Phase 2.5 DynamoDB data
+- [Phase 01.5-03]: DynamoDB SK uses MD5(session_id) % 10 hashed prefix to prevent hot partition under high concurrent load
+- [Phase 01.5-03]: MockToolAgent.latency_ms=50 hardcoded to simulate realistic tool timing; Phase 5 RealToolAgent measures real API latency
 
 ### Pending Todos
 
@@ -104,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T07:06:06.753Z
-Stopped at: Completed 01.5-04-PLAN.md (Agent Trace Events)
+Last session: 2026-03-13T07:20:00Z
+Stopped at: Completed 01.5-03-PLAN.md (MockMemoryStore and MockToolAgent)
 Resume file: None
