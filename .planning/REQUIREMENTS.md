@@ -34,7 +34,7 @@
 - [ ] **OBS-01**: OpenTelemetry traces and dashboards expose latency, reliability, cost, and safety metrics.
 - [ ] **OBS-02**: Golden dataset of at least 50 curated conversations with gold-label routing, source, and expected answer.
 - [ ] **OBS-03**: Replay harness computes WER, intent match, citation quality, hallucination, and latency metrics.
-- [ ] **OBS-04**: Agent trace event emitted every turn: session_id, turn_id, intent, intent_confidence, routing_decision, retrieved_doc_ids, llm_prompt_tokens, llm_response_tokens, llm_latency_ms, tool_calls, total_latency_ms.
+- [x] **OBS-04**: Agent trace event emitted every turn: session_id, turn_id, intent, intent_confidence, routing_decision, retrieved_doc_ids, llm_prompt_tokens, llm_response_tokens, llm_latency_ms, tool_calls, total_latency_ms.
 - [ ] **OBS-05**: Eval dashboard `voice-bot-mvp-evals` with per-run pass/fail badge, filter by date + last 2h, sortable metric table. Each eval script uses fixed seed for deterministic results.
 - [ ] **OBS-06**: Intent confusion matrix: per-intent precision/recall logged per turn, aggregated weekly in CloudWatch `IntentPrecision/{intent_name}`. Fallback path triggers when confidence < 0.7.
 - [ ] **OBS-07**: Cost per conversation breakdown: compute_cost_usd + llm_cost_usd + storage_cost_usd. Alert fires if cost_per_turn > 2× baseline_expected_cost.
@@ -42,8 +42,8 @@
 ### Agent Architecture
 
 - [x] **AGENT-01**: Orchestrator+Intent Agent (Claude-backed) routes each turn, logs intent label and confidence score per turn.
-- [ ] **AGENT-02**: Retrieval Agent (Claude-backed) wraps BM25+DynamoDB RAG, returns top-3 chunks with source attribution.
-- [ ] **AGENT-03**: Response Agent (Claude-backed) synthesizes grounded final answer with citations from retrieved context.
+- [x] **AGENT-02**: Retrieval Agent (Claude-backed) wraps BM25+DynamoDB RAG, returns top-3 chunks with source attribution.
+- [x] **AGENT-03**: Response Agent (Claude-backed) synthesizes grounded final answer with citations from retrieved context.
 - [ ] **AGENT-04**: Memory Store persists conversation sessions in DynamoDB (session_id PK, turn_timestamp SK with hashed prefix, TTL 90 days); Orchestrator injects last 5 turns into context.
 - [ ] **AGENT-05**: Tool Agent executes municipal tools (property lookup, utility, permits); mock in Phase 1.5, real in Phase 5.
 - [ ] **AGENT-06**: Supervisor Agent vetoes unsafe tool plans and responses; outputs signed audit trail with decision reason for every veto.
@@ -90,11 +90,11 @@
 | RAG-01 | Phase 1 | Complete |
 | RAG-02 | Phase 1 | Complete |
 | AGENT-01 | Phase 1.5 | Complete (2026-03-13) |
-| AGENT-02 | Phase 1.5 | Pending |
-| AGENT-03 | Phase 1.5 | Pending |
+| AGENT-02 | Phase 1.5 | Complete |
+| AGENT-03 | Phase 1.5 | Complete |
 | AGENT-04 | Phase 1.5 (mock) → Phase 2.5 (real) | Pending |
 | AGENT-05 | Phase 1.5 (mock) → Phase 5 (real) | Pending |
-| OBS-04 | Phase 1.5 | Pending |
+| OBS-04 | Phase 1.5 | Complete |
 | PLAT-01 | Phase 2 | Pending |
 | PLAT-02 | Phase 2 | Pending |
 | PLAT-03 | Phase 2 | Pending |
