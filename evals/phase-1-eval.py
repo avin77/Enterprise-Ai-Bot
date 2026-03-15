@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Phase 1 Evaluation Script -- GXA Voice Baseline
+Phase 1 Evaluation Script -- Government Voice Baseline
 Fixed seed=42 for deterministic results. Runs 100 mock turns.
 
 Metrics evaluated:

@@ -1,7 +1,9 @@
 # Phase 0: Learning MVP Bootstrap - Context
 
 **Gathered:** 2026-03-01
-**Status:** Ready for planning
+**Updated:** 2026-03-09
+**Status:** Complete (Phase 0 done; monitoring layer added post-completion)
+**Monitoring:** EventBridge + Lambda metrics publisher + 2 CloudWatch dashboards deployed
 
 <domain>
 ## Phase Boundary
@@ -23,6 +25,11 @@ Deliver one full working voice roundtrip for MVP validation with a layered archi
 - Backend must expose `/ws`, `/chat`, and `/health`.
 - Backend must include MVP-level API protection: token validation + rate limiting.
 
+### Auth Model (Locked for Phase 0)
+- Phase 0 uses backend-only MVP token auth (no separate auth server).
+- REST uses `Authorization: Bearer <token>` and WebSocket uses token query/header.
+- Auth validation remains simple for MVP and is not a full production identity system.
+
 ### AWS Service Usage (Locked)
 - Backend calls AWS services securely for voice pipeline:
   - Amazon Transcribe for speech-to-text
@@ -38,9 +45,20 @@ Deliver one full working voice roundtrip for MVP validation with a layered archi
 ### Infrastructure Layer (Locked for Phase 0 Scope)
 - Backend is containerized with Docker.
 - Initial AWS deployment path includes ECR and ECS/Fargate target in us-east-1.
-- Infrastructure is defined through Terraform for phase-0 delivery.
+- Deployment orchestration for phase 0 should use AWS CLI-driven scripts (no Terraform required for acceptance).
 - "Deploy path: Dockerfile -> ECR -> ECS Task/Service -> CloudWatch Logs" means a real AWS deployment path, not local-only execution.
-- Phase-0 Terraform provisions deploy assets by default and can run service deployment when VPC subnet/security-group inputs are provided.
+- Phase-0 validation should use an ephemeral deploy model: deploy for smoke tests, then teardown to minimize cost.
+- Avoid always-on ECS service for MVP smoke validation unless explicitly needed.
+
+### Monitoring and Observability (Added Post-Completion)
+- **EventBridge scheduler** triggers a Lambda function every 15 minutes to publish custom ECS cost/idle metrics to CloudWatch namespace `voicebot/operations`.
+- **Lambda metrics publisher** (`lambda_metrics.py`) reads ECS cluster state and emits: `HourlyCost`, `DailyCost`, `MonthlyCost`, `IdleTasks` custom metrics.
+- **Two CloudWatch dashboards deployed via Terraform:**
+  - `{app}-resources`: Basic ECS CPU/memory utilization and task counts.
+  - `{app}-operations` (Senior PM dashboard): 4-row layout — Resource Health, Cost Metrics, Cost Trend, Log Insights (errors/warnings from `/ecs/{app}` log group).
+- **CloudWatch alarms:** CPU >80% and Memory >85% trigger alerts on ECS service.
+- Monitoring stack is Terraform-managed (`dashboard.tf`, `lambda_metrics.tf`, `monitoring.tf`).
+- Custom metric namespace: `voicebot/operations` — used by the PM dashboard cost widgets.
 
 ### AWS API Exposure (Locked for Phase 0 Scope)
 - Public app APIs are FastAPI endpoints (`/health`, `/chat`, `/ws`) running in the backend service.
@@ -66,6 +84,7 @@ Deliver one full working voice roundtrip for MVP validation with a layered archi
 - Exact token format for MVP auth validation.
 - Exact message envelope fields beyond required endpoint contract.
 - Exact implementation details of local mocks and smoke tests.
+- Whether ephemeral ECS execution uses one-off task vs short-lived service.
 
 </decisions>
 
@@ -75,6 +94,8 @@ Deliver one full working voice roundtrip for MVP validation with a layered archi
 - Phase 0 should move fast but still prove cloud viability on AWS.
 - Secure roundtrip means backend-mediated AWS calls only.
 - Backend is the orchestration core: audio -> STT -> LLM -> TTS -> streamed response.
+- AWS phase-0 test path should be CLI-first from local machine after AWS login.
+- Lowest-cost phase-0 cloud testing model is deploy -> smoke -> teardown.
 - Documentation should let non-technical stakeholders understand what is built, why it matters, and how to validate it.
 - Include API-level user stories and acceptance criteria linked back to phase plans.
 
@@ -90,10 +111,11 @@ Deliver one full working voice roundtrip for MVP validation with a layered archi
 - Production-grade cost instrumentation per API call.
 - Add persistent AWS database for conversation/session storage (e.g., DynamoDB/RDS) plus retention policy.
 - Add AWS API Gateway + custom domain + versioning/governance for enterprise API management.
+- Reintroduce Terraform IaC as the primary deployment method in a later hardening phase.
 
 </deferred>
 
 ---
 
 *Phase: 00-learning-mvp-bootstrap*
-*Context gathered: 2026-03-01*
+*Context gathered: 2026-03-01; updated: 2026-03-05*

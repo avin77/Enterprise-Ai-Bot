@@ -139,14 +139,14 @@ Write-Host ""
 
 Write-Host "[SUPPORT] CloudWatch Logs:" -ForegroundColor Yellow
 Write-Host "  /aws/lambda/$lambdaFunc" -ForegroundColor Gray
-Write-Host "  Check here if metrics don't appear" -ForegroundColor Gray
+Write-Host '  Check here if metrics dont appear' -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "[STATUS] Everything is automated:" -ForegroundColor Cyan
-Write-Host "  • No manual dashboard setup needed" -ForegroundColor Green
-Write-Host "  • Metrics publish automatically every 15 min" -ForegroundColor Green
-Write-Host "  • All infrastructure as code (Terraform)" -ForegroundColor Green
-Write-Host "  • Ready for production monitoring" -ForegroundColor Green
+Write-Host "  - No manual dashboard setup needed" -ForegroundColor Green
+Write-Host "  - Metrics publish automatically every 15 min" -ForegroundColor Green
+Write-Host "  - All infrastructure as code (Terraform)" -ForegroundColor Green
+Write-Host "  - Ready for production monitoring" -ForegroundColor Green
 Write-Host ""
 
 Pop-Location

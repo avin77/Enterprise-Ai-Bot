@@ -47,7 +47,7 @@ Option C (Incremental Upgrade) selected. Existing 8 phases preserved. Two new de
 ### Phase 0 ✓ Learning MVP Bootstrap (Complete)
 Nothing changes. Voice loop + ECS deploy working.
 
-### Phase 1: GXA Voice Baseline (Updated)
+### Phase 1: Government Voice Baseline (Updated)
 **Change:** Remove EC2 from scope. 2-tier only: Local Docker + ECS Fargate.
 Stack: DynamoDB + BM25 + Redis, all-MiniLM-L6-v2 embeddings.
 No agent routing yet — direct RAG pipeline.

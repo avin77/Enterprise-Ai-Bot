@@ -6,8 +6,9 @@ source:
   - 00-02-SUMMARY.md
   - 00-03-SUMMARY.md
   - 00-04-SUMMARY.md
+  - 00-05-SUMMARY.md
 started: 2026-03-01T09:40:06Z
-updated: 2026-03-01T09:40:06Z
+updated: 2026-03-05T00:00:00Z
 ---
 
 ## Current Test
@@ -54,15 +55,21 @@ expected: Frontend sends requests only to backend /chat and /ws and contains no 
 result: [pending]
 
 ### 9. AWS Bootstrap Assets Are Present
-expected: backend Dockerfile, terraform files, and aws-bootstrap script exist and include expected ECR/ECS/bootstrap commands.
+expected: backend Dockerfile and aws-bootstrap script exist and include expected AWS CLI ECR/ECS deploy and teardown commands.
+result: [pending]
+
+### 10. AWS CLI Deploy/Teardown Smoke Flow
+expected: |
+  Run aws-bootstrap script in deploy mode with ECS networking inputs, validate /health via PHASE0_SMOKE_URL,
+  then run teardown mode and confirm ECS service no longer exists.
 result: [pending]
 
 ## Summary
 
-total: 9
+total: 10
 passed: 0
 issues: 0
-pending: 9
+pending: 10
 skipped: 0
 
 ## Gaps

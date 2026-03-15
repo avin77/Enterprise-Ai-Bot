@@ -1,8 +1,8 @@
-# Phase 1: GXA Voice Baseline — Research
+# Phase 1: Government Voice Baseline — Research
 
 **Researched:** 2026-03-10 (updated with Validation Architecture)
-**Domain:** Government voice bot: DynamoDB + BM25 + Redis RAG, ECS Fargate, IAM, conversation tracking, CloudWatch metrics, GXA/Granicus intent taxonomy
-**Confidence:** HIGH (core stack verified via official AWS docs and PyPI; GXA intents from Granicus published materials; hallucination proxy and government synonyms are MEDIUM confidence based on domain patterns)
+**Domain:** Government voice bot: DynamoDB + BM25 + Redis RAG, ECS Fargate, IAM, conversation tracking, CloudWatch metrics, Government intent taxonomy
+**Confidence:** HIGH (core stack verified via official AWS docs and PyPI; government intents from published materials; hallucination proxy and government synonyms are MEDIUM confidence based on domain patterns)
 
 ---
 
@@ -103,7 +103,7 @@ Phase 1 implements a government voice RAG bot using DynamoDB + BM25 + Redis — 
 
 The research confirms EC2 removal is sound. The gap from local Docker Compose to ECS Fargate is bridged entirely through environment variable configuration (AWS credentials, DynamoDB table names, S3 bucket names). There is no third deployment tier needed for an MVP. The existing Phase 0 test infrastructure uses `unittest` + `pytest` (no config file detected); Phase 1 tests extend this pattern and add `pytest-asyncio` for async adapter tests.
 
-GXA/Granicus government bots serve a well-defined intent taxonomy: property tax, utility payments, trash/waste, permits, elections, courts, parks, emergency management, and 311 general routing. The top 20 government intents are documented below with synonym dictionaries for BM25 query expansion covering 33+ base terms.
+Government government bots serve a well-defined intent taxonomy: property tax, utility payments, trash/waste, permits, elections, courts, parks, emergency management, and 311 general routing. The top 20 government intents are documented below with synonym dictionaries for BM25 query expansion covering 33+ base terms.
 
 **Primary recommendation:** Ship DynamoDB + BM25 + Redis with Redis fallback to BM25 (never fail voice turns). Store embeddings as DynamoDB Binary for Phase 4 upgrade readiness. Track conversations in DynamoDB Table 2 with TTL. Push turn metrics to CloudWatch. The stack handles the <1.5s SLO comfortably with BM25+Redis path running ~6ms total.
 
@@ -822,11 +822,11 @@ def publish_turn_metrics(result, redis_hit: bool, bm25_score: float,
 
 ---
 
-## GXA / Granicus — Top Government Intents
+## Government — Top Government Intents
 
 ### Top 20 Municipal Government Intents (Jackson County applicable)
 
-Derived from Granicus GXA published materials, Denver "Sunny" chatbot reports, NYC311, and general municipal service taxonomy research.
+Derived from government published materials, Denver "Sunny" chatbot reports, NYC311, and general municipal service taxonomy research.
 
 | # | Intent Category | Example Questions | Jackson County Department |
 |---|-----------------|-------------------|--------------------------|
@@ -851,7 +851,7 @@ Derived from Granicus GXA published materials, Denver "Sunny" chatbot reports, N
 | 19 | Stray Animal / Animal Control | "Who do I call about a stray dog?" | Animal Control |
 | 20 | 311 General Routing | "I need to report something but don't know which department" | 311 / Call Center |
 
-**Confidence:** MEDIUM-HIGH — derived from Granicus published use cases, NYC311 common topics, and Jackson County website structure.
+**Confidence:** MEDIUM-HIGH — derived from Government published use cases, NYC311 common topics, and Jackson County website structure.
 
 ---
 
@@ -1332,8 +1332,8 @@ The following test files must be created before or alongside implementation (Wav
   - https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html
 
 ### Secondary (MEDIUM confidence)
-- Granicus GXA — Government chatbot use cases, top intents (FAQ, permits, waste, elections)
-  - https://granicus.com/blog/smarter-government-starts-here-use-cases-for-the-government-experience-agent/
+- government — Government chatbot use cases, top intents (FAQ, permits, waste, elections)
+  - [removed]
 - AWS Database Blog — DynamoDB data models for generative AI chatbots (session schema patterns)
   - https://aws.amazon.com/blogs/database/amazon-dynamodb-data-models-for-generative-ai-chatbots/
 - Evidently AI — RAG evaluation metrics, groundedness score, proxy signals for hallucination
@@ -1343,7 +1343,7 @@ The following test files must be created before or alongside implementation (Wav
 
 ### Tertiary (LOW confidence — flag for validation)
 - Government synonym pairs: Domain-derived, not validated against specific Jackson County corpus
-- GXA intent list: Derived from Granicus marketing materials; actual intent volume distribution unknown
+- Government intent list: Derived from Government marketing materials; actual intent volume distribution unknown
 - Groundedness proxy algorithm: Custom heuristic; not benchmarked against labeled Jackson County data
 
 ---
@@ -1359,10 +1359,10 @@ The following test files must be created before or alongside implementation (Wav
 - Conversation tracking: HIGH — DynamoDB TTL and session patterns well-documented
 - Validation Architecture: HIGH — test commands verified against existing Phase 0 test structure
 - Government synonyms: MEDIUM — domain knowledge, not benchmarked
-- GXA/Granicus intents: MEDIUM — derived from marketing materials, not internal analytics
+- Government intents: MEDIUM — derived from marketing materials, not internal analytics
 - Hallucination proxy: MEDIUM — heuristic approach, RAGAS-inspired but not formally validated
 - Cost per conversation formula: MEDIUM — pricing estimates from AWS public pricing pages (ap-south-1)
 
 **Research date:** 2026-03-10
 **Valid until:** 2026-04-10 (30-day window for stable stack)
-**Next research trigger:** If Granicus releases new GXA intent taxonomy, or if DynamoDB pricing changes in ap-south-1.
+**Next research trigger:** If new government intent taxonomy emerges, or if DynamoDB pricing changes in ap-south-1.

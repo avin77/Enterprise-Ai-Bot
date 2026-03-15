@@ -1,6 +1,6 @@
 ﻿# Project Research Summary
 
-**Project:** Voice-Based Chatbot for Granicus PM
+**Project:** Enterprise AI Voice Bot
 **Domain:** Gov-ready web voice AI assistant
 **Researched:** 2026-02-28
 **Confidence:** HIGH

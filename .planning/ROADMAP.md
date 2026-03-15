@@ -1,4 +1,4 @@
-# Roadmap: Enterprise AI Voice Bot (GXA / Granicus)
+# Roadmap: Enterprise AI Voice Bot
 
 ## Overview
 
@@ -43,7 +43,7 @@ Two-tier only (EC2 removed for simplicity):
 ## Phase List
 
 - [x] **Phase 0: Learning MVP Bootstrap** — Voice loop + ECS bootstrap (Complete 2026-03-01)
-- [x] **Phase 1: GXA Voice Baseline** — RAG pipeline: DynamoDB + BM25 + Redis, 2-tier deploy, latency <1.5s (completed 2026-03-11)
+- [x] **Phase 1: Government Voice Baseline** — RAG pipeline: DynamoDB + BM25 + Redis, 2-tier deploy, latency <1.5s (completed 2026-03-11)
 - [ ] **Phase 1.5: Agentic Voice Core** ★ NEW — Orchestrator+Intent+Retrieval+Response agents, Mock Memory/Tool, agent traces
 - [ ] **Phase 2: Public Sector Safety** — PII scrubbing, guardrails, Supervisor Agent, adversarial red team eval
 - [ ] **Phase 2.5: Conversation Memory** ★ NEW — Real DynamoDB sessions, multi-turn history, conversation metrics, intent confusion matrix
@@ -73,7 +73,7 @@ Plans:
 
 ---
 
-### Phase 1: GXA Voice Baseline
+### Phase 1: Government Voice Baseline
 **Goal:** Runnable MVP voice bot with RAG knowledge base. Grounds Jackson County FAQ answers using DynamoDB + BM25 + Redis. Turn latency <1.5s end-to-end. 2-tier only (Local + ECS — EC2 removed).
 **Depends on:** Phase 0
 **Requirements:** [VOIC-03, RAG-01, RAG-02]
@@ -320,7 +320,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Learning MVP Bootstrap | 5/5 | Complete | 2026-03-01 |
-| 1. GXA Voice Baseline | 4/4 | Complete   | 2026-03-11 |
+| 1. Government Voice Baseline | 4/4 | Complete   | 2026-03-11 |
 | 1.5. Agentic Voice Core ★ | 4/5 | In Progress|  |
 | 2. Public Sector Safety | 0/4 | Not started | - |
 | 2.5. Conversation Memory ★ | 0/3 | Not started | - |

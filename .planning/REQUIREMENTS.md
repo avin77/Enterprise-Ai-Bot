@@ -1,4 +1,4 @@
-# Requirements: Enterprise AI Voice Bot (GXA / Granicus)
+# Requirements: Enterprise AI Voice Bot
 
 **Defined:** 2026-02-28
 **Updated:** 2026-03-10 — added AGENT-* and updated OBS-* for multi-agent agentic architecture

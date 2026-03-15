@@ -1,0 +1,416 @@
+{
+  "summary": {
+    "total_turns": 50,
+    "success_count": 50,
+    "error_count": 0,
+    "slo_met_count": 0,
+    "slo_met_pct": 0.0,
+    "latency_p50_ms": 2504.4,
+    "latency_p95_ms": 2591.0,
+    "latency_p99_ms": 2887.4,
+    "estimated_cost_usd": 0.8,
+    "timestamp": "2026-03-12T08:13:20.823774Z"
+  },
+  "turns": [
+    {
+      "question": "How do I apply for a building permit?",
+      "answer": "aws-assistant:How do I apply for a building permit?",
+      "latency_ms": 2887.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the property tax payment deadlines?",
+      "answer": "aws-assistant:What are the property tax payment deadlines?",
+      "latency_ms": 2483.3,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I register to vote in Jackson County?",
+      "answer": "aws-assistant:How do I register to vote in Jackson County?",
+      "latency_ms": 2525.6,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "Where can I pay my water bill?",
+      "answer": "aws-assistant:Where can I pay my water bill?",
+      "latency_ms": 2516.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What documents do I need for a zoning variance?",
+      "answer": "aws-assistant:What documents do I need for a zoning variance?",
+      "latency_ms": 2503.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I report a pothole on a county road?",
+      "answer": "aws-assistant:How do I report a pothole on a county road?",
+      "latency_ms": 2447.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the recycling pickup days?",
+      "answer": "aws-assistant:What are the recycling pickup days?",
+      "latency_ms": 2551.9,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I get a copy of my birth certificate?",
+      "answer": "aws-assistant:How do I get a copy of my birth certificate?",
+      "latency_ms": 2418.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What is the process for a business license?",
+      "answer": "aws-assistant:What is the process for a business license?",
+      "latency_ms": 2521.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I appeal my property assessment?",
+      "answer": "aws-assistant:How do I appeal my property assessment?",
+      "latency_ms": 2428.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "Where is the nearest county health clinic?",
+      "answer": "aws-assistant:Where is the nearest county health clinic?",
+      "latency_ms": 2527.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I apply for food assistance (SNAP)?",
+      "answer": "aws-assistant:How do I apply for food assistance (SNAP)?",
+      "latency_ms": 2424.2,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the county court hours?",
+      "answer": "aws-assistant:What are the county court hours?",
+      "latency_ms": 2626.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I contest a traffic citation?",
+      "answer": "aws-assistant:How do I contest a traffic citation?",
+      "latency_ms": 2503.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "Where do I renew my vehicle registration?",
+      "answer": "aws-assistant:Where do I renew my vehicle registration?",
+      "latency_ms": 2504.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the park and recreation programs?",
+      "answer": "aws-assistant:What are the park and recreation programs?",
+      "latency_ms": 2467.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I report a stray animal?",
+      "answer": "aws-assistant:How do I report a stray animal?",
+      "latency_ms": 2497.9,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What permits do I need to add a fence?",
+      "answer": "aws-assistant:What permits do I need to add a fence?",
+      "latency_ms": 2495.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I find my polling location?",
+      "answer": "aws-assistant:How do I find my polling location?",
+      "latency_ms": 2547.9,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the senior services available?",
+      "answer": "aws-assistant:What are the senior services available?",
+      "latency_ms": 2586.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I pay county court fees online?",
+      "answer": "aws-assistant:How do I pay county court fees online?",
+      "latency_ms": 2519.9,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What is the deadline for homestead exemption?",
+      "answer": "aws-assistant:What is the deadline for homestead exemption?",
+      "latency_ms": 2443.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I get a septic permit?",
+      "answer": "aws-assistant:How do I get a septic permit?",
+      "latency_ms": 2563.1,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "Where do I apply for emergency rental assistance?",
+      "answer": "aws-assistant:Where do I apply for emergency rental assistance?",
+      "latency_ms": 2458.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the hours for the county clerk office?",
+      "answer": "aws-assistant:What are the hours for the county clerk office?",
+      "latency_ms": 2514.9,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I report code violations?",
+      "answer": "aws-assistant:How do I report code violations?",
+      "latency_ms": 2476.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What is the process for a name change?",
+      "answer": "aws-assistant:What is the process for a name change?",
+      "latency_ms": 2499.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I get my criminal background check?",
+      "answer": "aws-assistant:How do I get my criminal background check?",
+      "latency_ms": 2504.1,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the requirements for a vendor permit?",
+      "answer": "aws-assistant:What are the requirements for a vendor permit?",
+      "latency_ms": 2463.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I dispute my utility bill?",
+      "answer": "aws-assistant:How do I dispute my utility bill?",
+      "latency_ms": 2515.8,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "Where can I find county budget documents?",
+      "answer": "aws-assistant:Where can I find county budget documents?",
+      "latency_ms": 2483.1,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I apply for a job with the county?",
+      "answer": "aws-assistant:How do I apply for a job with the county?",
+      "latency_ms": 2538.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the flood zone regulations?",
+      "answer": "aws-assistant:What are the flood zone regulations?",
+      "latency_ms": 2458.6,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I get a marriage license?",
+      "answer": "aws-assistant:How do I get a marriage license?",
+      "latency_ms": 2519.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What assistance is available after a disaster?",
+      "answer": "aws-assistant:What assistance is available after a disaster?",
+      "latency_ms": 2429.2,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I contact animal control?",
+      "answer": "aws-assistant:How do I contact animal control?",
+      "latency_ms": 2512.2,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the county holiday schedules?",
+      "answer": "aws-assistant:What are the county holiday schedules?",
+      "latency_ms": 2427.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I get a copy of a court record?",
+      "answer": "aws-assistant:How do I get a copy of a court record?",
+      "latency_ms": 2533.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What is the process for a land survey?",
+      "answer": "aws-assistant:What is the process for a land survey?",
+      "latency_ms": 2459.8,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I appeal a zoning decision?",
+      "answer": "aws-assistant:How do I appeal a zoning decision?",
+      "latency_ms": 2507.4,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "Where do I report elder abuse?",
+      "answer": "aws-assistant:Where do I report elder abuse?",
+      "latency_ms": 2438.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What is the county tax rate?",
+      "answer": "aws-assistant:What is the county tax rate?",
+      "latency_ms": 2536.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I get a library card?",
+      "answer": "aws-assistant:How do I get a library card?",
+      "latency_ms": 2430.6,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the requirements for a food truck permit?",
+      "answer": "aws-assistant:What are the requirements for a food truck permit?",
+      "latency_ms": 2591.0,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I schedule a county inspector?",
+      "answer": "aws-assistant:How do I schedule a county inspector?",
+      "latency_ms": 2434.2,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What mental health services does the county offer?",
+      "answer": "aws-assistant:What mental health services does the county offer?",
+      "latency_ms": 2506.5,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I apply for disability accommodations?",
+      "answer": "aws-assistant:How do I apply for disability accommodations?",
+      "latency_ms": 2562.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the noise ordinance rules?",
+      "answer": "aws-assistant:What are the noise ordinance rules?",
+      "latency_ms": 2504.7,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "How do I find unclaimed property in the county?",
+      "answer": "aws-assistant:How do I find unclaimed property in the county?",
+      "latency_ms": 2432.1,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "question": "What are the regulations for short-term rentals?",
+      "answer": "aws-assistant:What are the regulations for short-term rentals?",
+      "latency_ms": 2513.3,
+      "slo_met": false,
+      "status": "ok",
+      "error": null
+    }
+  ]
+}

@@ -33,7 +33,7 @@ def lambda_handler(event, context):
         print(f"[INFO] Idle tasks found: {idle_tasks}")
 
         # Publish metrics
-        publish_metrics(costs, idle_tasks, service_info["running_count"], service_info["desired_count"])
+        publish_metrics(costs, idle_tasks)
         print("[SUCCESS] Metrics published to CloudWatch")
 
         return {
@@ -113,7 +113,7 @@ def get_idle_tasks(cluster_name, hours_threshold=48):
     return idle_count
 
 
-def publish_metrics(costs, idle_tasks, running_count, desired_count):
+def publish_metrics(costs, idle_tasks):
     """Publish custom metrics to CloudWatch"""
     timestamp = datetime.utcnow()
 
@@ -139,18 +139,6 @@ def publish_metrics(costs, idle_tasks, running_count, desired_count):
         {
             "MetricName": "IdleTasks",
             "Value": idle_tasks,
-            "Unit": "Count",
-            "Timestamp": timestamp,
-        },
-        {
-            "MetricName": "RunningCount",
-            "Value": running_count,
-            "Unit": "Count",
-            "Timestamp": timestamp,
-        },
-        {
-            "MetricName": "DesiredCount",
-            "Value": desired_count,
             "Unit": "Count",
             "Timestamp": timestamp,
         },

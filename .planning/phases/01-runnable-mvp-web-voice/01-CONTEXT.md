@@ -1,4 +1,4 @@
-# Phase 1: GXA Voice Baseline - Context
+# Phase 1: Government Voice Baseline - Context
 
 **Gathered:** 2026-03-09
 **Status:** Context locked — architecture updated 2026-03-10 (TWO-TIER ONLY: Local Docker + ECS Fargate; EC2 tier removed; BM25+DynamoDB RAG; 4-plan structure)
